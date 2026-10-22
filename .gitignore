@@ -1,0 +1,56 @@
+# LocalMate - Node / Vite
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+*.tsbuildinfo
+.npm/
+.npm-cache/
+.pip-cache/
+.tmp/
+
+# Python / FastAPI
+__pycache__/
+*.py[cod]
+.pytest_cache/
+pytest-cache-files-*/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg-info/
+.coverage
+htmlcov/
+
+# IDE / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Sensitive configuration / local state
+.env
+.env.*
+!.env.example
+.qwen/.env
+.qwen/settings.json
+.codex/
+*.pem
+*.p12
+*.key
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.log
+
+# Cache / large local material
+coverage/
+playwright-report/
+test-results/
+artifacts/
+data/private/
+data/imports/
+*.zip
+!*.example.zip
