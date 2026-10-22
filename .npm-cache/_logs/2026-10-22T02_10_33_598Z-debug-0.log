@@ -1,0 +1,55 @@
+0 verbose cli C:\Program Files\nodejs\node.exe C:\Program Files\nodejs\node_modules\npm\bin\npm-cli.js
+1 info using npm@11.19.0
+2 info using node@v24.20.0
+3 silly config load:file:C:\Program Files\nodejs\node_modules\npm\npmrc
+4 silly config load:file:C:\Users\82103\Documents\GitHub\LocalMate\frontend\.npmrc
+5 silly config load:file:C:\Users\82103\.npmrc
+6 silly config load:file:C:\Users\82103\Documents\GitHub\LocalMate\frontend\etc\npmrc
+7 verbose title npm install
+8 verbose argv "--prefix" "frontend" "install" "--cache" ".npm-cache"
+9 verbose logfile logs-max:10 dir:C:\Users\82103\Documents\GitHub\LocalMate\.npm-cache\_logs\2026-10-22T02_10_33_598Z-
+10 verbose logfile C:\Users\82103\Documents\GitHub\LocalMate\.npm-cache\_logs\2026-10-22T02_10_33_598Z-debug-0.log
+11 silly logfile done cleaning log files
+12 http fetch GET https://registry.npmjs.org/npm attempt 1 failed with ECONNREFUSED
+13 silly packumentCache heap:2348810240 maxSize:587202560 maxEntrySize:293601280
+14 silly idealTree buildDeps
+15 silly fetch manifest react@^19.0.0
+16 silly packumentCache full:https://registry.npmjs.org/react cache-miss
+17 silly fetch manifest react-dom@^19.0.0
+18 silly packumentCache full:https://registry.npmjs.org/react-dom cache-miss
+19 silly fetch manifest @types/react@^19.0.0
+20 silly packumentCache full:https://registry.npmjs.org/@types%2freact cache-miss
+21 silly fetch manifest @types/react-dom@^19.0.0
+22 silly packumentCache full:https://registry.npmjs.org/@types%2freact-dom cache-miss
+23 silly fetch manifest typescript@~5.9.0
+24 silly packumentCache full:https://registry.npmjs.org/typescript cache-miss
+25 silly fetch manifest vite@^7.0.0
+26 silly packumentCache full:https://registry.npmjs.org/vite cache-miss
+27 silly placeDep ROOT @types/react@ OK for: localmate-frontend@0.0.0 want: ^19.0.0
+28 silly placeDep ROOT @types/react-dom@ OK for: localmate-frontend@0.0.0 want: ^19.0.0
+29 silly placeDep ROOT react@ OK for: localmate-frontend@0.0.0 want: ^19.0.0
+30 silly placeDep ROOT react-dom@ OK for: localmate-frontend@0.0.0 want: ^19.0.0
+31 silly placeDep ROOT typescript@ OK for: localmate-frontend@0.0.0 want: ~5.9.0
+32 silly placeDep ROOT vite@ OK for: localmate-frontend@0.0.0 want: ^7.0.0
+33 verbose stack Error: request to https://registry.npmjs.org/@types%2freact failed: cache mode is 'only-if-cached' but no cached response is available.
+33 verbose stack     at cacheFetch (C:\Program Files\nodejs\node_modules\npm\node_modules\make-fetch-happen\lib\cache\index.js:12:13)
+33 verbose stack     at async fetch (C:\Program Files\nodejs\node_modules\npm\node_modules\make-fetch-happen\lib\fetch.js:98:7)
+33 verbose stack     at async RegistryFetcher.packument (C:\Program Files\nodejs\node_modules\npm\node_modules\pacote\lib\registry.js:90:19)
+33 verbose stack     at async RegistryFetcher.manifest (C:\Program Files\nodejs\node_modules\npm\node_modules\pacote\lib\registry.js:128:23)
+33 verbose stack     at async #fetchManifest (C:\Program Files\nodejs\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\build-ideal-tree.js:1346:20)
+33 verbose stack     at async #nodeFromEdge (C:\Program Files\nodejs\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\build-ideal-tree.js:1162:19)
+33 verbose stack     at async #buildDepStep (C:\Program Files\nodejs\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\build-ideal-tree.js:999:15)
+33 verbose stack     at async Arborist.buildIdealTree (C:\Program Files\nodejs\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\build-ideal-tree.js:180:7)
+33 verbose stack     at async Promise.all (index 1)
+33 verbose stack     at async Arborist.reify (C:\Program Files\nodejs\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:118:5)
+34 error code ENOTCACHED
+35 error request to https://registry.npmjs.org/@types%2freact failed: cache mode is 'only-if-cached' but no cached response is available.
+36 silly unfinished npm timer reify 1792635043336
+37 silly unfinished npm timer reify:loadTrees 1792635043337
+38 verbose cwd C:\Users\82103\Documents\GitHub\LocalMate
+39 verbose os Windows_NT 10.0.26200
+40 verbose node v24.20.0
+41 verbose npm  v11.19.0
+42 verbose exit 1
+43 verbose code 1
+44 error A complete log of this run can be found in: C:\Users\82103\Documents\GitHub\LocalMate\.npm-cache\_logs\2026-10-22T02_10_33_598Z-debug-0.log
