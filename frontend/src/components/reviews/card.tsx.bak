@@ -1,0 +1,116 @@
+import { useState } from 'react';
+import { Star, Sparkles, MessageSquare, Pencil, Trash2 } from 'lucide-react';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
+
+export function ReviewCard({ review }: { review: any }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [replyContent, setReplyContent] = useState(review.reply || '');
+  const [draftContent, setDraftContent] = useState('');
+
+  const handleAIRecommend = () => {
+    setDraftContent('고객님, 소중한 리뷰 감사합니다! 비 오는 날 늦어서 정말 죄송합니다. 다음 주문 시 요청사항에 닉네임 남겨주시면 사이드 메뉴로 보답드릴게요.');
+    setIsEditing(true);
+  };
+
+  return (
+    <div className="flex flex-col gap-4 border-b border-slate-100 py-6 last:border-b-0">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600 font-medium">
+            {review.author?.substring(0, 1) || '고'}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold">{review.author}</span>
+              {review.hasReviewEvent && (
+                <span className="rounded flex items-center gap-1 bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">
+                  🎁 리뷰이벤트
+                </span>
+              )}
+              <div className="flex text-yellow-400 text-sm">
+                {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
+              </div>
+            </div>
+            <div className="text-sm text-slate-500">{review.date} {review.menu && `• ${review.menu}`}</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        {review.tags && review.tags.length > 0 && (
+          <div className="mb-2 flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-slate-400" />
+            <span className="text-xs font-medium text-slate-500">AI</span>
+            {review.tags.map((tag: string, idx: number) => (
+              <span key={idx} className={cn("rounded-full px-2 py-0.5 text-xs font-medium", tag.includes('불만') || tag.includes('요청') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600')}>
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-4">
+          <p className="flex-1 text-slate-700 whitespace-pre-wrap">{review.content}</p>
+          {review.imageUrl && (
+            <img src={review.imageUrl} alt="리뷰 이미지" className="h-24 w-24 rounded-xl object-cover shrink-0 border border-slate-100" />
+          )}
+        </div>
+      </div>
+
+      {!replyContent && !isEditing && (
+        <div className="flex items-center gap-2 mt-2">
+          <button onClick={handleAIRecommend} className="flex items-center gap-1.5 rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors">
+            <Sparkles className="h-4 w-4" /> AI 답글 추천 생성
+          </button>
+          <button onClick={() => { setDraftContent(''); setIsEditing(true); }} className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+            <Pencil className="h-4 w-4" /> 직접 작성
+          </button>
+        </div>
+      )}
+
+      {isEditing && (
+        <div className="mt-2 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
+          <textarea
+            value={draftContent}
+            onChange={(e) => setDraftContent(e.target.value)}
+            className="w-full resize-none bg-transparent text-sm text-slate-700 focus:outline-none min-h-[80px]"
+            placeholder="답글을 작성해주세요..."
+          />
+          <div className="mt-2 flex items-center justify-between border-t border-indigo-100 pt-3">
+            <span className="text-xs text-slate-500">{draftContent.length}/1000자</span>
+            <div className="flex gap-2">
+              <button onClick={() => setIsEditing(false)} className="text-sm font-medium text-slate-500 hover:text-slate-700 px-3 py-1.5">
+                X 취소
+              </button>
+              <button onClick={() => { setReplyContent(draftContent); setIsEditing(false); }} className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
+                💾 저장 및 등록
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {replyContent && !isEditing && (
+        <div className="mt-2 rounded-xl bg-slate-50 p-4 border border-slate-100">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium text-blue-700">
+              <MessageSquare className="h-4 w-4" /> 사장님 답글
+            </div>
+            <div className="flex items-center gap-3 text-sm text-slate-500">
+              <button onClick={() => { setDraftContent(replyContent); setIsEditing(true); }} className="flex items-center gap-1 hover:text-slate-800 transition-colors">
+                <Pencil className="h-3.5 w-3.5" /> 수정
+              </button>
+              <button onClick={() => setReplyContent('')} className="flex items-center gap-1 hover:text-red-600 transition-colors">
+                <Trash2 className="h-3.5 w-3.5" /> 삭제
+              </button>
+            </div>
+          </div>
+          <p className="text-sm text-slate-700 whitespace-pre-wrap">{replyContent}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+export default ReviewCard;
