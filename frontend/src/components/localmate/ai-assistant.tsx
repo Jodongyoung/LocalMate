@@ -1,20 +1,22 @@
+'use client'
+
 import { useEffect, useRef, useState } from 'react'
 import { Bot, Send, Sparkles, X, ChevronLeft, ChevronRight } from 'lucide-react'
-import { assistantResponses, initialChat, quickActions, type Review, type SentimentTag } from '@/lib/mock-data'
+import { STORE_DASHBOARD_DATA, CAFE_REVIEWS, CHICKEN_REVIEWS, assistantResponses, quickActions, type Review, type SentimentTag } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
 
 type Message = { role: 'user' | 'assistant'; content: string }
 
 const BULK_DRAFT_ACTION = '✨ 리뷰 답글 일괄 초안'
 
+type Point = { x: number; y: number }
+
 const FAB_SIZE = 64
-const EDGE_GAP = 16
+const EDGE_GAP = 24
 const PANEL_GAP = 12
 const PANEL_MAX_HEIGHT = 600
 const DRAG_THRESHOLD = 5
-const KEY_STEP = 16
-
-type Point = { x: number; y: number }
+const KEY_STEP = 24
 
 function clampToViewport({ x, y }: Point): Point {
   return {
@@ -64,108 +66,162 @@ function buildBulkDraftResponse(targets: Review[], totalCount: number) {
 }
 
 function buildUnansweredSummary(reviews: Review[]) {
-  const unanswered = (reviews || []).filter((r) => !r.reply)
+  const unanswered = reviews.filter((r) => !r.reply)
   if (unanswered.length === 0) return '현재 미답변 리뷰가 없어요. 모든 고객 리뷰에 답글이 등록되어 있습니다!'
   const tags = countTags(unanswered)
   return `현재 미답변 리뷰는 ${unanswered.length}건이에요${tags ? ` (${tags})` : ''}. 불만 리뷰는 24시간 내 답변 시 재주문율이 평균 2.3배 높아요. "리뷰 답글 일괄 초안"을 눌러보세요!`
 }
 
-function getFallbackResponse(input: string, reviews: Review[]) {
-  if (input.includes('매출'))
-    return '이번 달 누적 매출은 18,500,000원으로 목표 대비 74% 달성했어요. 남은 기간 하루 평균 약 224,000원만 더 올리면 목표 달성이 가능해요. 주말 세트 메뉴 프로모션을 추천드려요.'
-  if (input.includes('리뷰') || input.includes('답글')) return buildUnansweredSummary(reviews)
-  if (input.includes('비') || input.includes('날씨'))
-    return assistantResponses['✨ 비 오는 날 매출 증대 팁']
-  return '확인했어요, 사장님! 대구 동성로점 데이터를 기준으로 분석해 볼게요. 매출, 리뷰, 프로모션 관련 질문을 주시면 더 정확하게 도와드릴 수 있어요.'
-}
-
 export function AiAssistant({
-  reviews,
+  reviews: initialReviews,
   onGenerateAllDrafts,
 }: {
   reviews: Review[]
   onGenerateAllDrafts: () => Review[]
 }) {
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>(() => initialChat.slice(1))
+  const [storeId, setStoreId] = useState('cafe')
+  const [currentReviews, setCurrentReviews] = useState<Review[]>(initialReviews)
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const reviewsRef = useRef(reviews)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
 
-  const chipScrollRef = useRef<HTMLDivElement>(null)
-  const [canScrollLeft, setCanScrollLeft] = useState(false)
-  const [canScrollRight, setCanScrollRight] = useState(false)
-
-  function updateChipScrollState() {
-    const el = chipScrollRef.current
-    if (!el) return
-    setCanScrollLeft(el.scrollLeft > 1)
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
+  const loadStoreReviews = (sId: string) => {
+    const storageKey = `localmate_reviews_${sId}`
+    const saved = localStorage.getItem(storageKey)
+    if (saved) {
+      try {
+        return JSON.parse(saved) as Review[]
+      } catch (e) {}
+    }
+    return sId === 'cafe' ? CAFE_REVIEWS : CHICKEN_REVIEWS
   }
 
-  function scrollChips(distance: number) {
-    chipScrollRef.current?.scrollBy({ left: distance, behavior: 'smooth' })
+  const generateGreeting = (sId: string, revs: Review[]) => {
+    const storeInfo = sId === 'cafe' ? STORE_DASHBOARD_DATA.cafe : STORE_DASHBOARD_DATA.chicken
+    const storeName = sId === 'cafe' ? '대구 동성로점' : '수성 치킨점'
+    const unansweredCount = revs.filter(r => !r.reply).length
+    const salesFormatted = new Intl.NumberFormat('ko-KR').format(storeInfo.kpis.todaySales)
+    const delta = storeInfo.kpis.todayDelta
+
+    let greeting = `사장님, 안녕하세요! LocalMate AI 업무 비서입니다. 오늘 ${storeName} 매출은 ${salesFormatted}원으로 어제보다 ${delta}% 높아요.`
+    if (unansweredCount > 0) {
+      greeting += ` 현재 확인이 필요한 미답변 리뷰가 ${unansweredCount}건 있어요.`
+    } else {
+      greeting += ` 모든 고객 리뷰에 답변이 완료되었습니다 완벽해요!`
+    }
+    greeting += ` 무엇을 도와드릴까요?`
+    return greeting
   }
 
   useEffect(() => {
-    const el = chipScrollRef.current
-    if (!el) return
-    updateChipScrollState()
-    const ro = new ResizeObserver(updateChipScrollState)
-    ro.observe(el)
-    window.addEventListener('resize', updateChipScrollState)
+    const savedStore = localStorage.getItem('localmate_store_id') || 'cafe'
+    setStoreId(savedStore)
+    const revs = loadStoreReviews(savedStore)
+    setCurrentReviews(revs)
+    setMessages([{ role: 'assistant', content: generateGreeting(savedStore, revs) }])
+
+    const handleStoreSync = (e: Event) => {
+      const customEvent = e as CustomEvent<string>
+      if (customEvent.detail) {
+        const newStore = customEvent.detail
+        setStoreId(newStore)
+        const revs = loadStoreReviews(newStore)
+        setCurrentReviews(revs)
+        setMessages([{ role: 'assistant', content: generateGreeting(newStore, revs) }])
+      }
+    }
+
+    const handleReviewSync = () => {
+      const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
+      const revs = loadStoreReviews(currentStore)
+      setCurrentReviews(revs)
+      setMessages([{ role: 'assistant', content: generateGreeting(currentStore, revs) }])
+    }
+
+    window.addEventListener('storeChange', handleStoreSync)
+    window.addEventListener('reviewsUpdated', handleReviewSync)
+
     return () => {
-      ro.disconnect()
-      window.removeEventListener('resize', updateChipScrollState)
+      window.removeEventListener('storeChange', handleStoreSync)
+      window.removeEventListener('reviewsUpdated', handleReviewSync)
     }
   }, [])
-
-  useEffect(() => {
-    reviewsRef.current = reviews
-  }, [reviews])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, typing, open])
 
-  const unansweredCount = (reviews || []).filter((r) => !r.reply).length
-  const greeting = `사장님, 안녕하세요! LocalMate AI 업무 비서입니다. 오늘 대구 동성로점 매출은 1,284,000원으로 어제보다 12.4% 높아요. ${
-    unansweredCount > 0 ? `미답변 리뷰가 ${unansweredCount}건 있어요.` : '모든 리뷰에 답글이 등록되어 있어요.'
-  } 무엇을 도와드릴까요?`
+  const scrollQuickActions = (direction: 'left' | 'right') => {
+    if (scrollContainerRef.current) {
+      const amount = direction === 'left' ? -150 : 150
+      scrollContainerRef.current.scrollBy({ left: amount, behavior: 'smooth' })
+    }
+  }
+
+  const getMonthlyComplaintSummary = () => {
+    const totalCount = currentReviews.length
+    return `이번 달 총 ${totalCount}건의 리뷰 중 불만·개선요청 데이터를 분석했어요.\n\n1. 대기시간 지연 (24%) — 금·토 저녁 7~9시에 집중돼요.\n2. 포장 누락 (12%) — 음료·치즈볼 등 사이드 메뉴 누락이 대부분이에요.\n3. 음식 온도 (9%) — 대부분 배달 지연과 함께 발생했어요.\n\n💡 피크타임 조리 인력 1명 보강과 포장 체크리스트 도입을 추천드려요.`
+  }
+
+  // 🎯 모든 추천 질문 항목에 반짝이 아이콘(✨)을 일괄적으로 적용하여 완벽하게 통일
+  const unifiedQuickActions = [
+    '✨ 리뷰 답글 일괄 초안',
+    '✨ 이번 달 주요 불만 요약',
+    '✨ 비 오는 날 매출 증대 팁',
+    '✨ 이번 주 매출 요약해줘',
+    '✨ 단골 고객 통계'
+  ]
 
   function send(text: string) {
-    const content = text.trim()
+    // 내부적으로 비교할 때는 아이콘 제거한 순수 텍스트로 처리
+    const cleanText = text.replace('✨ ', '')
+    const content = cleanText.trim()
     if (!content || typing) return
-    setMessages((prev) => [...prev, { role: 'user', content }])
+
+    setMessages((prev) => [...prev, { role: 'user', content: text }])
     setInput('')
     setTyping(true)
+
     setTimeout(() => {
-      const latest = reviewsRef.current
-      const reply =
-        content === BULK_DRAFT_ACTION
-          ? buildBulkDraftResponse(onGenerateAllDrafts(), latest.length)
-          : assistantResponses[content] ?? getFallbackResponse(content, latest)
+      let reply = ''
+      if (content.includes('리뷰 답글 일괄 초안')) {
+        reply = buildBulkDraftResponse(onGenerateAllDrafts(), currentReviews.length)
+      } else if (content.includes('불만 요약')) {
+        reply = getMonthlyComplaintSummary()
+      } else if (content.includes('비 오는 날')) {
+        reply = assistantResponses['✨ 비 오는 날 매출 증대 팁'] ?? '지난 6개월 데이터를 보면, 비 오는 날 주문이 평균 31% 늘어요!\n\n1️⃣ 오후 4시 전 "비 오는 날 2천원 할인" 쿠폰을 미리 발행하세요.\n2️⃣ 세트 메뉴 노출을 상단으로 올리면 객단가가 약 18% 올라가요.\n3️⃣ 예상 배달시간을 10분 넉넉하게 설정하면 대기불만 리뷰를 줄일 수 있어요.'
+      } else if (content.includes('매출')) {
+        const storeInfo = storeId === 'cafe' ? STORE_DASHBOARD_DATA.cafe : STORE_DASHBOARD_DATA.chicken
+        reply = `현재 이번 달 누적 매출은 ${new Intl.NumberFormat('ko-KR').format(storeInfo.salesTarget.current)}원으로 목표 대비 ${storeInfo.salesTarget.percentage}% 달성했어요. 남은 기간 순항 중입니다!`
+      } else if (content.includes('단골')) {
+        reply = `3회 이상 재주문 고객 비율이 높으며 객단가 상승에 기여하고 있습니다.`
+      } else {
+        reply = assistantResponses[text] ?? assistantResponses[`✨ ${text}`] ?? buildUnansweredSummary(currentReviews)
+      }
+
       setMessages((prev) => [...prev, { role: 'assistant', content: reply }])
       setTyping(false)
     }, 1000)
   }
 
-  const renderedMessages: Message[] = [{ role: 'assistant', content: greeting }, ...messages]
+  const [fabPos, setFabPos] = useState<Point | null>(() => {
+    if (typeof window !== 'undefined') {
+      return { x: window.innerWidth - FAB_SIZE - 24, y: window.innerHeight - FAB_SIZE - 24 }
+    }
+    return null
+  })
 
-  const [fabPos, setFabPos] = useState<Point | null>(null)
   const [dragging, setDragging] = useState(false)
-  const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number; moved: boolean } | null>(
-    null
-  )
+  const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number; moved: boolean } | null>(null)
   const suppressClickRef = useRef(false)
 
   useEffect(() => {
-    const onResize = () => setFabPos((p) => (p ? clampToViewport(p) : p))
+    const onResize = () => setFabPos((p) => (p ? clampToViewport(p) : { x: window.innerWidth - FAB_SIZE - 24, y: window.innerHeight - FAB_SIZE - 24 }))
     window.addEventListener('resize', onResize)
-    return () => {
-      window.removeEventListener('resize', onResize)
-    }
+    return () => window.removeEventListener('resize', onResize)
   }, [])
 
   function handlePointerDown(e: React.PointerEvent<HTMLButtonElement>) {
@@ -215,14 +271,14 @@ export function AiAssistant({
   }
 
   const panelLayout = fabPos ? getPanelLayout(fabPos) : null
+  const unansweredCount = currentReviews.filter((r) => !r.reply).length
 
   return (
     <>
       <div
         className={cn(
           'fixed z-50 w-[calc(100vw-2rem)] max-w-sm transition-[opacity,transform] duration-300 ease-out',
-          // ✅ 수정 1: 채팅창이 우측 하단에서 열리도록 변경
-          !panelLayout && 'bottom-24 right-4 md:right-6 origin-bottom-right',
+          !panelLayout && 'bottom-24 right-6 origin-bottom-right',
           open ? 'opacity-100 scale-100' : 'pointer-events-none opacity-0 scale-95'
         )}
         style={panelLayout?.style}
@@ -245,7 +301,7 @@ export function AiAssistant({
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-75" />
                   <span className="relative inline-flex size-2 rounded-full bg-emerald-300" />
                 </span>
-                온라인
+                온라인 · 실시간 분석 중
               </p>
             </div>
             <span
@@ -266,7 +322,7 @@ export function AiAssistant({
           </div>
 
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-background" aria-live="polite">
-            {renderedMessages.map((m, i) => (
+            {messages.map((m, i) => (
               <div key={i} className={cn('flex gap-2', m.role === 'user' ? 'justify-end' : 'justify-start')}>
                 {m.role === 'assistant' && (
                   <div className="size-7 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center shrink-0 mt-0.5">
@@ -299,58 +355,44 @@ export function AiAssistant({
             )}
           </div>
 
-          <div className="border-t bg-card p-3">
-            <div className="relative">
-              <div
-                ref={chipScrollRef}
-                className="flex flex-nowrap gap-1.5 overflow-x-auto pb-2 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                onScroll={updateChipScrollState}
-              >
-                {quickActions.map((q) => (
-                  <button
-                    key={q}
-                    type="button"
-                    onClick={() => send(q)}
-                    disabled={typing}
-                    tabIndex={open ? 0 : -1}
-                    className="shrink-0 whitespace-nowrap rounded-full border border-primary/20 bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground hover:bg-primary/15 disabled:opacity-50 transition"
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
+          {/* ↔️ 좌우 화살표 버튼과 함께 모든 항목에 반짝이 아이콘이 일괄 통일된 추천 질문 영역 */}
+          <div className="border-t bg-card p-2 flex items-center gap-1 relative shrink-0">
+            <button
+              type="button"
+              onClick={() => scrollQuickActions('left')}
+              className="size-7 rounded-full border bg-secondary flex items-center justify-center text-muted-foreground hover:bg-muted shrink-0 z-10 transition"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
 
-              {canScrollLeft && (
-                <div className="absolute left-0 top-0 bottom-2 w-10 pointer-events-none bg-gradient-to-r from-card via-card/80 to-transparent z-10" />
-              )}
-              {canScrollRight && (
-                <div className="absolute right-0 top-0 bottom-2 w-10 pointer-events-none bg-gradient-to-l from-card via-card/80 to-transparent z-10" />
-              )}
-
-              {canScrollLeft && (
+            <div
+              ref={scrollContainerRef}
+              className="flex-1 flex gap-1.5 overflow-x-auto no-scrollbar scroll-smooth px-1 [scrollbar-width:none]"
+            >
+              {unifiedQuickActions.map((q) => (
                 <button
+                  key={q}
                   type="button"
-                  onClick={() => scrollChips(-160)}
-                  aria-label="이전 추천 질문"
+                  onClick={() => send(q)}
+                  disabled={typing}
                   tabIndex={open ? 0 : -1}
-                  className="absolute left-0 top-[calc(50%-4px)] -translate-y-1/2 z-20 size-7 rounded-full bg-card border shadow-sm flex items-center justify-center hover:bg-secondary transition"
+                  className="shrink-0 rounded-full border border-primary/20 bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground hover:bg-primary/15 disabled:opacity-50 transition whitespace-nowrap"
                 >
-                  <ChevronLeft className="size-4 text-foreground/70" aria-hidden="true" />
+                  {q}
                 </button>
-              )}
-
-              {canScrollRight && (
-                <button
-                  type="button"
-                  onClick={() => scrollChips(160)}
-                  aria-label="다음 추천 질문"
-                  tabIndex={open ? 0 : -1}
-                  className="absolute right-0 top-[calc(50%-4px)] -translate-y-1/2 z-20 size-7 rounded-full bg-card border shadow-sm flex items-center justify-center hover:bg-secondary transition"
-                >
-                  <ChevronRight className="size-4 text-foreground/70" aria-hidden="true" />
-                </button>
-              )}
+              ))}
             </div>
+
+            <button
+              type="button"
+              onClick={() => scrollQuickActions('right')}
+              className="size-7 rounded-full border bg-secondary flex items-center justify-center text-muted-foreground hover:bg-muted shrink-0 z-10 transition"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+          </div>
+
+          <div className="border-t bg-card p-3">
             <form
               onSubmit={(e) => {
                 e.preventDefault()
@@ -374,7 +416,7 @@ export function AiAssistant({
                 }}
                 rows={1}
                 tabIndex={open ? 0 : -1}
-                placeholder="무엇이든 물어보세요 (예: 이번 주 매출 분석)"
+                placeholder="무엇이든 물어보세요 (예: 이번 달 불만 요약)"
                 className="flex-1 resize-none max-h-28 rounded-xl border bg-background px-3 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               />
               <button
@@ -406,8 +448,7 @@ export function AiAssistant({
         style={fabPos ? { left: fabPos.x, top: fabPos.y } : undefined}
         className={cn(
           'fixed z-50 size-16 flex flex-col items-center justify-center gap-0.5 rounded-full bg-primary text-primary-foreground shadow-xl shadow-primary/30 ring-4 ring-primary/15 touch-none select-none transition-[transform,background-color,box-shadow]',
-          // ✅ 수정 2: AI 비서 버튼 본체를 우측 하단으로 고정
-          !fabPos && 'bottom-6 right-4 md:right-6',
+          !fabPos && 'bottom-6 right-6',
           dragging
             ? 'cursor-grabbing scale-110 shadow-2xl shadow-primary/40'
             : 'cursor-grab hover:bg-primary/90 hover:scale-105 active:scale-95'

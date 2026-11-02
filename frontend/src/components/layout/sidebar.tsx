@@ -155,8 +155,10 @@ export function Sidebar({
                 >
                   <Icon className="size-5 shrink-0" />
                   {!isCollapsed && <span className="font-medium text-sm whitespace-nowrap">{tab.label}</span>}
+                  
+                  {/* 🎯 사진 속 모양과 100% 일치하는 완벽한 원형(Circle) 알림 배지 */}
                   {!isCollapsed && tab.badge && (
-                    <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0">
+                    <span className="ml-auto bg-red-500 text-white text-[11px] font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0 shadow-sm">
                       {tab.badge}
                     </span>
                   )}
