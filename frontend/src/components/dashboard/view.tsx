@@ -63,7 +63,7 @@ export function DashboardView({ onLogout }: { onLogout: () => void }) {
   }
 
   function deleteReply(id: string) {
-    setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, reply: null } : r)))
+    setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, reply: undefined } : r)))
     cancelDraft(id)
   }
 

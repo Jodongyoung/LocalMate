@@ -1,8 +1,67 @@
+'use client'
+
+import { useState, useEffect } from 'react'
 import { CalendarDays, Gift, MessageCircleWarning, TrendingUp, Wallet } from 'lucide-react'
-import { formatKRW, kpis } from '@/lib/mock-data'
+import { formatKRW, STORE_DASHBOARD_DATA, CAFE_REVIEWS, CHICKEN_REVIEWS, type Review } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
 
-export function KpiCards({ unansweredCount }: { unansweredCount: number }) {
+export function KpiCards() {
+  const [kpis, setKpis] = useState(STORE_DASHBOARD_DATA.chicken.kpis)
+  const [unansweredCount, setUnansweredCount] = useState(0)
+
+  // 현재 선택된 매장의 미답변 개수 실시간 계산 함수
+  const calcUnanswered = (storeId: string) => {
+    const storageKey = `localmate_reviews_${storeId}`
+    const saved = localStorage.getItem(storageKey)
+    let currentReviews: Review[] = []
+    if (saved) {
+      try {
+        currentReviews = JSON.parse(saved)
+      } catch (e) {
+        currentReviews = storeId === 'cafe' ? CAFE_REVIEWS : CHICKEN_REVIEWS
+      }
+    } else {
+      currentReviews = storeId === 'cafe' ? CAFE_REVIEWS : CHICKEN_REVIEWS
+    }
+    return currentReviews.filter(r => !r.reply).length
+  }
+
+  useEffect(() => {
+    const updateStoreData = (storeId: string) => {
+      if (storeId === 'cafe') {
+        setKpis(STORE_DASHBOARD_DATA.cafe.kpis)
+      } else {
+        setKpis(STORE_DASHBOARD_DATA.chicken.kpis)
+      }
+      setUnansweredCount(calcUnanswered(storeId))
+    }
+
+    const savedStore = localStorage.getItem('localmate_store_id') || 'cafe'
+    updateStoreData(savedStore)
+
+    // 매장 변경 시 sync
+    const handleStoreSync = (e: Event) => {
+      const customEvent = e as CustomEvent<string>
+      if (customEvent.detail) {
+        updateStoreData(customEvent.detail)
+      }
+    }
+
+    // 리뷰 답글 작성/삭제 시 실시간 sync
+    const handleReviewSync = () => {
+      const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
+      setUnansweredCount(calcUnanswered(currentStore))
+    }
+
+    window.addEventListener('storeChange', handleStoreSync)
+    window.addEventListener('reviewsUpdated', handleReviewSync)
+
+    return () => {
+      window.removeEventListener('storeChange', handleStoreSync)
+      window.removeEventListener('reviewsUpdated', handleReviewSync)
+    }
+  }, [])
+
   const items = [
     {
       label: '오늘 매출',

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Sidebar } from './sidebar'
 import { AiAssistant } from '../localmate/ai-assistant'
 import { LoginView } from '@/components/localmate/login-view' // 👈 니가 만든 로그인 화면 불러오기!
@@ -9,6 +9,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isAssistantOpen, setIsAssistantOpen] = useState(true)
   const [mounted, setMounted] = useState(false)
+  const isLoggedInRef = useRef(isLoggedIn)
 
   // Next.js 에러 방지
   useEffect(() => {
@@ -24,14 +25,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
           const authData = JSON.parse(storedAuth)
           if (authData.mode === 'user' || authData.mode === 'guest') {
             setIsLoggedIn('authed')
+            isLoggedInRef.current = 'authed'
           } else {
             setIsLoggedIn('guest-out')
+            isLoggedInRef.current = 'guest-out'
           }
         } catch (e) {
           setIsLoggedIn('guest-out')
+          isLoggedInRef.current = 'guest-out'
         }
       } else {
         setIsLoggedIn('guest-out')
+        isLoggedInRef.current = 'guest-out'
       }
       
       // 사이드바 접힘 상태 복원
@@ -44,6 +49,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
     }
 
     restoreAuthStatus()
+    
+    // 로그인 상태 체크 타임아웃 설정 (1초 후에 'guest-out'으로 강제 전환)
+    const timeoutId = setTimeout(() => {
+      if (isLoggedInRef.current === 'checking') {
+        setIsLoggedIn('guest-out')
+      }
+    }, 1000)
+    
+    return () => clearTimeout(timeoutId)
   }, [])
 
   // 로그인 성공 시 세션 스토리지에 저장
@@ -51,12 +65,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
     const authData = { mode, businessId }
     sessionStorage.setItem('localmate_auth', JSON.stringify(authData))
     setIsLoggedIn('authed')
+    isLoggedInRef.current = 'authed'
   }
 
   // 로그아웃 시 세션 스토리지에서 삭제
   const handleLogout = () => {
     sessionStorage.removeItem('localmate_auth')
     setIsLoggedIn('guest-out')
+    isLoggedInRef.current = 'guest-out'
   }
 
   // 사이드바 접기/펼치기 상태 저장
@@ -64,13 +80,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
     localStorage.setItem('localmate_sidebar_collapsed', isSidebarCollapsed.toString())
   }, [isSidebarCollapsed])
 
+  // mounted 상태가 false이면 null 반환 (서버 렌더링 방지)
   if (!mounted) return null
 
-  // 로그인 상태 확인 중일 때는 빈 화면 또는 로딩 표시
+  // 로그인 상태 확인 중일 때는 로딩 표시 또는 기본 화면
   if (isLoggedIn === 'checking') {
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-slate-50">
-        {/* 로딩 스피너를 여기에 추가 가능 */}
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">로그인 상태를 확인 중입니다...</p>
+        </div>
       </div>
     )
   }

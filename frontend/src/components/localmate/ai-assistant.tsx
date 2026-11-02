@@ -7,8 +7,6 @@ type Message = { role: 'user' | 'assistant'; content: string }
 
 const BULK_DRAFT_ACTION = '✨ 리뷰 답글 일괄 초안'
 
-// ⚠️ 아래 6개 상수는 붙여준 코드에서 사라져 있어서 임의 값으로 복구함.
-// 원래 값은 `git diff components/localmate/ai-assistant.tsx` 로 확인해서 맞출 것.
 const FAB_SIZE = 64
 const EDGE_GAP = 16
 const PANEL_GAP = 12
@@ -66,7 +64,6 @@ function buildBulkDraftResponse(targets: Review[], totalCount: number) {
 }
 
 function buildUnansweredSummary(reviews: Review[]) {
-  // 방어 코드: reviews가 undefined일 경우 빈 배열로 처리
   const unanswered = (reviews || []).filter((r) => !r.reply)
   if (unanswered.length === 0) return '현재 미답변 리뷰가 없어요. 모든 고객 리뷰에 답글이 등록되어 있습니다!'
   const tags = countTags(unanswered)
@@ -74,7 +71,6 @@ function buildUnansweredSummary(reviews: Review[]) {
 }
 
 function getFallbackResponse(input: string, reviews: Review[]) {
-  // 방어 코드: reviews가 undefined일 경우 빈 배열로 처리
   if (input.includes('매출'))
     return '이번 달 누적 매출은 18,500,000원으로 목표 대비 74% 달성했어요. 남은 기간 하루 평균 약 224,000원만 더 올리면 목표 달성이 가능해요. 주말 세트 메뉴 프로모션을 추천드려요.'
   if (input.includes('리뷰') || input.includes('답글')) return buildUnansweredSummary(reviews)
@@ -97,7 +93,6 @@ export function AiAssistant({
   const scrollRef = useRef<HTMLDivElement>(null)
   const reviewsRef = useRef(reviews)
 
-  // 추천 칩 슬라이드용 (반드시 컴포넌트 본문 안)
   const chipScrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
@@ -124,7 +119,6 @@ export function AiAssistant({
       ro.disconnect()
       window.removeEventListener('resize', updateChipScrollState)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -227,7 +221,8 @@ export function AiAssistant({
       <div
         className={cn(
           'fixed z-50 w-[calc(100vw-2rem)] max-w-sm transition-[opacity,transform] duration-300 ease-out',
-          !panelLayout && 'bottom-24 left-4 md:left-6 origin-bottom-left',
+          // ✅ 수정 1: 채팅창이 우측 하단에서 열리도록 변경
+          !panelLayout && 'bottom-24 right-4 md:right-6 origin-bottom-right',
           open ? 'opacity-100 scale-100' : 'pointer-events-none opacity-0 scale-95'
         )}
         style={panelLayout?.style}
@@ -325,7 +320,6 @@ export function AiAssistant({
                 ))}
               </div>
 
-              {/* Fade overlays */}
               {canScrollLeft && (
                 <div className="absolute left-0 top-0 bottom-2 w-10 pointer-events-none bg-gradient-to-r from-card via-card/80 to-transparent z-10" />
               )}
@@ -333,7 +327,6 @@ export function AiAssistant({
                 <div className="absolute right-0 top-0 bottom-2 w-10 pointer-events-none bg-gradient-to-l from-card via-card/80 to-transparent z-10" />
               )}
 
-              {/* Left Scroll Button */}
               {canScrollLeft && (
                 <button
                   type="button"
@@ -346,7 +339,6 @@ export function AiAssistant({
                 </button>
               )}
 
-              {/* Right Scroll Button */}
               {canScrollRight && (
                 <button
                   type="button"
@@ -414,7 +406,8 @@ export function AiAssistant({
         style={fabPos ? { left: fabPos.x, top: fabPos.y } : undefined}
         className={cn(
           'fixed z-50 size-16 flex flex-col items-center justify-center gap-0.5 rounded-full bg-primary text-primary-foreground shadow-xl shadow-primary/30 ring-4 ring-primary/15 touch-none select-none transition-[transform,background-color,box-shadow]',
-          !fabPos && 'bottom-5 left-4 md:left-6',
+          // ✅ 수정 2: AI 비서 버튼 본체를 우측 하단으로 고정
+          !fabPos && 'bottom-6 right-4 md:right-6',
           dragging
             ? 'cursor-grabbing scale-110 shadow-2xl shadow-primary/40'
             : 'cursor-grab hover:bg-primary/90 hover:scale-105 active:scale-95'

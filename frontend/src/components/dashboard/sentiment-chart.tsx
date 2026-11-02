@@ -1,6 +1,8 @@
-import { useState } from 'react'
+'use client'
+
+import { useState, useEffect } from 'react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { sentimentTrend } from '@/lib/mock-data'
+import { STORE_DASHBOARD_DATA } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
 
 const series = [
@@ -23,12 +25,13 @@ function ChartTooltip({
   label?: string
 }) {
   if (!active || !payload?.length) return null
-  const total = payload.reduce((sum, p) => sum + p.value, 0)
+  const total = payload.reduce((sum, p) => sum + (p.value || 0), 0)
   return (
     <div className="rounded-xl border bg-popover px-3 py-2.5 shadow-lg text-xs min-w-36">
       <p className="font-semibold mb-1.5">{label} 리뷰 {total}건</p>
       {payload.map((p) => {
         const s = series.find((x) => x.key === p.dataKey)
+        const percent = total > 0 ? Math.round(((p.value || 0) / total) * 100) : 0
         return (
           <div key={p.dataKey} className="flex items-center justify-between gap-4 py-0.5">
             <span className="flex items-center gap-1.5 text-muted-foreground">
@@ -36,7 +39,7 @@ function ChartTooltip({
               {s?.label}
             </span>
             <span className="font-medium tabular-nums">
-              {p.value}건 ({Math.round((p.value / total) * 100)}%)
+              {p.value || 0}건 ({percent}%)
             </span>
           </div>
         )
@@ -47,9 +50,32 @@ function ChartTooltip({
 
 export function SentimentChart() {
   const [hidden, setHidden] = useState<SeriesKey[]>([])
-  const latest = sentimentTrend[sentimentTrend.length - 1]
-  const latestTotal = latest.positive + latest.complaint + latest.improvement
-  const positiveRate = Math.round((latest.positive / latestTotal) * 100)
+  const [chartData, setChartData] = useState(STORE_DASHBOARD_DATA.chicken.sentimentTrend)
+
+  // 매장 변경 이벤트(storeChange) 감지하여 차트 데이터 실시간 연동
+  useEffect(() => {
+    const updateStoreData = (storeId: string) => {
+      const data = storeId === 'cafe' ? STORE_DASHBOARD_DATA.cafe.sentimentTrend : STORE_DASHBOARD_DATA.chicken.sentimentTrend
+      setChartData(data)
+    }
+
+    const savedStore = localStorage.getItem('localmate_store_id') || 'chicken'
+    updateStoreData(savedStore)
+
+    const handleSync = (e: Event) => {
+      const customEvent = e as CustomEvent<string>
+      if (customEvent.detail) {
+        updateStoreData(customEvent.detail)
+      }
+    }
+
+    window.addEventListener('storeChange', handleSync)
+    return () => window.removeEventListener('storeChange', handleSync)
+  }, [])
+
+  const latest = chartData[chartData.length - 1] || { positive: 0, complaint: 0, improvement: 0 }
+  const latestTotal = (latest.positive || 0) + (latest.complaint || 0) + (latest.improvement || 0)
+  const positiveRate = latestTotal > 0 ? Math.round(((latest.positive || 0) / latestTotal) * 100) : 0
 
   function toggle(key: SeriesKey) {
     setHidden((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]))
@@ -91,7 +117,7 @@ export function SentimentChart() {
 
       <div className="mt-4 h-64 md:h-72 flex-1 min-h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={sentimentTrend} margin={{ top: 8, right: 4, left: -16, bottom: 0 }}>
+          <BarChart data={chartData} margin={{ top: 8, right: 4, left: -16, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
             <XAxis
               dataKey="month"

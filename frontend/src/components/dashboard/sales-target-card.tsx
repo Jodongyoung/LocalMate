@@ -1,16 +1,41 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Pencil, Target } from 'lucide-react'
-import { formatKRW, salesTarget } from '@/lib/mock-data'
+import { formatKRW, STORE_DASHBOARD_DATA } from '@/lib/mock-data'
 
 const presets = [20_000_000, 25_000_000, 30_000_000]
 
 export function SalesTargetCard() {
-  const [goal, setGoal] = useState(salesTarget.goal)
+  // 1. 현재 선택된 매장에 맞는 초기 데이터 설정
+  const [storeData, setStoreData] = useState(STORE_DASHBOARD_DATA.chicken.salesTarget)
+  const [goal, setGoal] = useState(storeData.target)
   const [editing, setEditing] = useState(false)
-  const current = salesTarget.current
-  const percent = Math.min(100, Math.round((current / goal) * 100))
+
+  // 2. 매장 변경 이벤트(storeChange) 감지하여 데이터 실시간 연동
+  useEffect(() => {
+    const updateStore = (storeId: string) => {
+      const targetData = storeId === 'cafe' ? STORE_DASHBOARD_DATA.cafe.salesTarget : STORE_DASHBOARD_DATA.chicken.salesTarget
+      setStoreData(targetData)
+      setGoal(targetData.target)
+    }
+
+    const savedStore = localStorage.getItem('localmate_store_id') || 'chicken'
+    updateStore(savedStore)
+
+    const handleSync = (e: Event) => {
+      const customEvent = e as CustomEvent<string>
+      if (customEvent.detail) {
+        updateStore(customEvent.detail)
+      }
+    }
+
+    window.addEventListener('storeChange', handleSync)
+    return () => window.removeEventListener('storeChange', handleSync)
+  }, [])
+
+  const current = storeData.current
+  const percent = goal > 0 ? Math.min(100, Math.round((current / goal) * 100)) : 0
   const remaining = Math.max(0, goal - current)
   const daysLeft = 29
   const dailyNeeded = Math.ceil(remaining / daysLeft / 1000) * 1000
@@ -38,7 +63,7 @@ export function SalesTargetCard() {
         </button>
       </div>
 
-      {/* 목표 수정 버튼을 눌렀을 때 나타나는 2천/2.5천/3천만 원 선택 프리셋 바 */}
+      {/* 목표 수정 버튼을 눌렀을 때 나타나는 프리셋 바 */}
       {editing && (
         <div className="mt-3 flex flex-wrap gap-2 animate-in fade-in duration-200" role="group" aria-label="목표 금액 선택">
           {presets.map((p) => (

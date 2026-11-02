@@ -1,125 +1,123 @@
-import { useEffect, useRef, useState } from 'react'
-import { Bell, Check, ChevronDown, LogOut, Store } from 'lucide-react'
-import { stores } from '@/lib/mock-data'
-import { cn } from '@/lib/utils'
+'use client'
+
+import { useState, useEffect } from 'react'
+import { Bell, ChevronDown, Store } from 'lucide-react'
+
+const DEFAULT_STORES = [
+  { id: 'cafe', name: '☕ 동성로 카페 (본점)', platform: '배달의민족 연동 매장' },
+  { id: 'chicken', name: '🍗 수성 치킨 (지점)', platform: '쿠팡이츠 연동 매장' },
+]
 
 export function DashboardHeader({
   onLogout,
   unansweredCount,
 }: {
-  onLogout: () => void
-  unansweredCount: number
+  onLogout?: () => void
+  unansweredCount?: number
 }) {
-  const [open, setOpen] = useState(false)
-  const [selectedId, setSelectedId] = useState(stores[0].id)
-  const menuRef = useRef<HTMLDivElement>(null)
-  const selected = stores.find((s) => s.id === selectedId) ?? stores[0]
+  const [storeDropdownOpen, setStoreDropdownOpen] = useState(false)
+  const [selectedStoreId, setSelectedStoreId] = useState('cafe')
+  const [stores, setStores] = useState(DEFAULT_STORES)
+
+  // 1. 설정값에서 동적 상호명 불러오기
+  const loadStoreNames = () => {
+    const updatedStores = [...DEFAULT_STORES]
+    
+    const cafeSettings = localStorage.getItem('localmate_settings_cafe')
+    if (cafeSettings) updatedStores[0].name = JSON.parse(cafeSettings).name
+    
+    const chickenSettings = localStorage.getItem('localmate_settings_chicken')
+    if (chickenSettings) updatedStores[1].name = JSON.parse(chickenSettings).name
+    
+    setStores(updatedStores)
+  }
 
   useEffect(() => {
-    if (!open) return
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false)
+    loadStoreNames() // 최초 실행
+
+    const saved = localStorage.getItem('localmate_store_id')
+    if (saved && DEFAULT_STORES.some((s) => s.id === saved)) {
+      setSelectedStoreId(saved)
     }
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
+
+    // 설정창 변경 감지
+    window.addEventListener('settingsChange', loadStoreNames)
+
+    // 매장 변경 감지
+    const handleSync = (e: Event) => {
+      const customEvent = e as CustomEvent<string>
+      if (customEvent.detail) setSelectedStoreId(customEvent.detail)
     }
-    document.addEventListener('mousedown', handleClick)
-    document.addEventListener('keydown', handleKey)
+    window.addEventListener('storeChange', handleSync)
+
     return () => {
-      document.removeEventListener('mousedown', handleClick)
-      document.removeEventListener('keydown', handleKey)
+      window.removeEventListener('settingsChange', loadStoreNames)
+      window.removeEventListener('storeChange', handleSync)
     }
-  }, [open])
+  }, [])
+
+  const handleSelectStore = (id: string) => {
+    setSelectedStoreId(id)
+    setStoreDropdownOpen(false)
+    localStorage.setItem('localmate_store_id', id)
+    window.dispatchEvent(new CustomEvent('storeChange', { detail: id }))
+  }
+
+  const currentStore = stores.find((s) => s.id === selectedStoreId) || stores[0]
 
   return (
-    <header className="sticky top-0 z-30 border-b bg-card/80 backdrop-blur-md">
-      <div className="mx-auto max-w-7xl px-4 md:px-6 h-16 flex items-center gap-3">
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="size-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center">
-            <Store className="size-4" aria-hidden="true" />
+    <header className="flex h-16 w-full items-center justify-between border-b bg-white px-6">
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <div className="flex size-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
+            <Store className="size-5" />
           </div>
-          <span className="font-bold tracking-tight hidden sm:inline">LocalMate</span>
+          <span className="text-lg font-bold text-slate-900 tracking-tight">LocalMate</span>
         </div>
-
-        <span className="h-6 w-px bg-border hidden sm:block" aria-hidden="true" />
-
-        <div ref={menuRef} className="relative min-w-0">
+        <div className="h-4 w-px bg-slate-200"></div>
+        <div className="relative">
           <button
             type="button"
-            aria-haspopup="listbox"
-            aria-expanded={open}
-            onClick={() => setOpen((o) => !o)}
-            className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 hover:bg-muted transition min-w-0"
+            onClick={() => setStoreDropdownOpen(!storeDropdownOpen)}
+            className="flex items-center gap-2 text-sm font-semibold text-slate-800 hover:text-slate-950 transition-colors"
           >
-            <span className="size-2 rounded-full bg-success shrink-0" aria-hidden="true" />
-            <span className="text-sm font-semibold truncate">{selected.name}</span>
-            <span className="text-xs text-muted-foreground truncate hidden md:inline">
-              ({selected.platform})
-            </span>
-            <ChevronDown
-              className={cn('size-4 text-muted-foreground shrink-0 transition-transform', open && 'rotate-180')}
-              aria-hidden="true"
-            />
+            <span className="size-2 rounded-full bg-emerald-500"></span>
+            <span>{currentStore.name}</span>
+            <span className="text-xs font-normal text-slate-500">({currentStore.platform})</span>
+            <ChevronDown className="size-4 text-slate-400" />
           </button>
-          {open && (
-            <ul
-              role="listbox"
-              aria-label="매장 선택"
-              className="absolute left-0 top-full mt-2 w-72 rounded-2xl border bg-popover p-1.5 shadow-lg animate-in fade-in-0 zoom-in-95"
-            >
+
+          {storeDropdownOpen && (
+            <div className="absolute left-0 top-full mt-2 w-64 rounded-xl border border-slate-100 bg-white p-1.5 shadow-xl z-50">
               {stores.map((s) => (
-                <li key={s.id} role="option" aria-selected={s.id === selectedId}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedId(s.id)
-                      setOpen(false)
-                    }}
-                    className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-muted transition"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{s.name}</p>
-                      <p className="text-xs text-muted-foreground">{s.platform}</p>
-                    </div>
-                    {s.id === selectedId && <Check className="size-4 text-primary" aria-hidden="true" />}
-                  </button>
-                </li>
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => handleSelectStore(s.id)}
+                  className={`flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left transition-colors ${
+                    selectedStoreId === s.id ? 'bg-indigo-50 font-bold' : 'hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="text-sm font-medium text-slate-900">{s.name}</span>
+                  <span className="text-xs text-slate-500">{s.platform}</span>
+                </button>
               ))}
-            </ul>
+            </div>
           )}
         </div>
-
-        <div className="ml-auto flex items-center gap-1.5">
-          <button
-            type="button"
-            className="relative size-9 rounded-xl hover:bg-muted flex items-center justify-center transition"
-            aria-label={`알림, 미답변 리뷰 ${unansweredCount}건`}
-          >
-            <Bell className="size-4.5" aria-hidden="true" />
-            {unansweredCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-destructive" />
-            )}
-          </button>
-          <div className="flex items-center gap-2 pl-2">
-            <div
-              className="size-8 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center text-xs font-bold"
-              aria-hidden="true"
-            >
-              김
-            </div>
-            <div className="hidden md:block leading-tight">
-              <p className="text-sm font-semibold">김사장님</p>
-              <p className="text-xs text-muted-foreground">게스트 체험 중</p>
-            </div>
+      </div>
+      <div className="flex items-center gap-4">
+        <button type="button" className="relative p-2 text-slate-400 hover:text-slate-600 transition-colors">
+          <Bell className="size-5" />
+          <span className="absolute top-2 right-2 size-2 rounded-full bg-red-500 ring-2 ring-white"></span>
+        </button>
+        <div className="h-4 w-px bg-slate-200"></div>
+        <div className="flex items-center gap-3">
+          <div className="flex size-9 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 font-bold">김</div>
+          <div className="flex flex-col">
+            <span className="text-sm font-bold text-slate-900 leading-tight">김사장님</span>
+            <span className="text-xs text-slate-500 leading-tight">게스트 체험 중</span>
           </div>
-          <button
-            type="button"
-            onClick={onLogout}
-            className="size-9 rounded-xl hover:bg-muted flex items-center justify-center text-muted-foreground transition"
-            aria-label="로그아웃"
-          >
-            <LogOut className="size-4" aria-hidden="true" />
-          </button>
         </div>
       </div>
     </header>
