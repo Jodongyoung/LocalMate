@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from '@/components/layout/router-compat'
 import { generateReplyDraft, initialReviews, type Review } from '@/lib/mock-data'
 import { getCurrentWeatherScenario, type WeatherCondition } from '@/lib/weather-scenarios'
 import { DashboardHeader } from './dashboard-header'
@@ -15,41 +16,75 @@ export function DashboardView({ onLogout }: { onLogout: () => void }) {
   const [storeId, setStoreId] = useState('cafe')
   const [weatherInfo, setWeatherInfo] = useState<WeatherCondition>(() => getCurrentWeatherScenario('cafe'))
 
+  // 🎯 승인 대기 건수 및 대표 제안 내용 동적 상태 (0건이면 배너 숨김)
+  const [pendingTasks, setPendingTasks] = useState<{ count: number; firstTitle?: string }>({ count: 0 })
+
   const reviewsRef = useRef(reviews)
 
   useEffect(() => {
     reviewsRef.current = reviews
   }, [reviews])
 
-  // 지점 동기화, 설정 변경(주소 수정) 및 30분 단위 날씨 실시간 체크
+  // 승인 대기 건수 동기화 함수
+  const syncPendingTasks = (currentStore: string) => {
+    const saved = localStorage.getItem(`localmate_proposals_v5_${currentStore}`)
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        const pending = parsed.filter((p: any) => p.status === 'pending')
+        setPendingTasks({
+          count: pending.length,
+          firstTitle: pending[0]?.title
+        })
+        return
+      } catch (e) {}
+    }
+
+    // fallback
+    const globalCount = localStorage.getItem('localmate_pending_tasks_count')
+    const count = globalCount !== null ? Number(globalCount) : 0
+    setPendingTasks({ count, firstTitle: undefined })
+  }
+
+  // 지점 동기화, 설정 변경(주소 수정), 날씨 및 승인 대기 상태 실시간 체크
   useEffect(() => {
-    const updateWeather = () => {
+    const updateDashboard = () => {
       const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
       setStoreId(currentStore)
       setWeatherInfo(getCurrentWeatherScenario(currentStore))
+      syncPendingTasks(currentStore)
     }
 
-    updateWeather()
+    updateDashboard()
 
     const handleStoreSync = (e: Event) => {
       const customEvent = e as CustomEvent<string>
       if (customEvent.detail) {
         setStoreId(customEvent.detail)
         setWeatherInfo(getCurrentWeatherScenario(customEvent.detail))
+        syncPendingTasks(customEvent.detail)
       }
     }
 
     const handleSettingsSync = () => {
-      updateWeather()
+      updateDashboard()
+    }
+
+    // 🎯 TasksView에서 승인/보류 시 실시간으로 대시보드 배너 상태 업데이트
+    const handlePendingUpdated = () => {
+      const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
+      syncPendingTasks(currentStore)
     }
 
     window.addEventListener('storeChange', handleStoreSync)
     window.addEventListener('settingsChange', handleSettingsSync)
-    const timer = setInterval(updateWeather, 60 * 1000)
+    window.addEventListener('pendingTasksUpdated', handlePendingUpdated)
+    const timer = setInterval(updateDashboard, 60 * 1000)
 
     return () => {
       window.removeEventListener('storeChange', handleStoreSync)
       window.removeEventListener('settingsChange', handleSettingsSync)
+      window.removeEventListener('pendingTasksUpdated', handlePendingUpdated)
       clearInterval(timer)
     }
   }, [])
@@ -135,25 +170,37 @@ export function DashboardView({ onLogout }: { onLogout: () => void }) {
           </div>
         </section>
 
-        {/* 승인 대기 알림 배너 */}
-        <div className="rounded-2xl border bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200 p-5 shadow-sm">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5">
-              <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
-                <span className="text-amber-600 font-bold text-sm">🔔</span>
+        {/* 🎯 승인 대기 알림 배너 (대기 건수가 1건 이상일 때만 표시, 0건이면 완전 소멸) */}
+        {pendingTasks.count > 0 && (
+          <div className="rounded-2xl border bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200 p-5 shadow-sm animate-in fade-in">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                  <span className="text-amber-600 font-bold text-sm">🔔</span>
+                </div>
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-amber-900">승인 대기</h3>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
+                    {pendingTasks.count}건
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-amber-800">
+                  {pendingTasks.firstTitle 
+                    ? `[승인 대기] ${pendingTasks.firstTitle}` 
+                    : `매장 보호 및 매출 최적화를 위한 AI 긴급 제안이 ${pendingTasks.count}건 대기 중입니다.`}
+                </p>
+                <Link
+                  href="/tasks"
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-amber-700 transition shadow-xs"
+                >
+                  제안 검토 및 승인하기
+                </Link>
               </div>
             </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-amber-900">승인 대기</h3>
-              <p className="mt-1 text-sm text-amber-800">
-                [승인 대기] 피크타임 조리 인력 추가 배치 및 주문 동선 점검
-              </p>
-              <button className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-amber-700 transition">
-                제안 검토 및 승인하기
-              </button>
-            </div>
           </div>
-        </div>
+        )}
       </main>
     </div>
   )

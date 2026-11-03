@@ -34,14 +34,8 @@ export function Sidebar({
   const [selectedStoreId, setSelectedStoreId] = useState('cafe')
   const [stores, setStores] = useState(DEFAULT_STORES)
 
-  // 🎯 AI 업무 및 승인 대기 건수 실시간 동적 상태 관리 (기본값 2건)
-  const [pendingTasksCount, setPendingTasksCount] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
-      const savedCount = localStorage.getItem('localmate_pending_tasks_count')
-      return savedCount !== null ? Number(savedCount) : 2
-    }
-    return 2
-  })
+  // 🎯 AI 업무 및 승인 대기 건수 상태 (기본값 0)
+  const [pendingTasksCount, setPendingTasksCount] = useState<number>(0)
 
   // 1. 설정값에서 동적 상호명 불러오기
   const loadStoreNames = () => {
@@ -64,9 +58,9 @@ export function Sidebar({
     setStores(updatedStores)
   }
 
-  // 매장별 저장된 승인 대기 건수 동기화 함수
+  // 2. 🎯 매장별 승인 대기 건수 동기화 (새로고침 시 v5 저장소 정확히 조회)
   const syncPendingCount = (storeId: string) => {
-    const savedProposals = localStorage.getItem(`localmate_proposals_${storeId}`)
+    const savedProposals = localStorage.getItem(`localmate_proposals_v5_${storeId}`)
     if (savedProposals) {
       try {
         const parsed = JSON.parse(savedProposals)
@@ -76,10 +70,11 @@ export function Sidebar({
         return
       } catch (e) {}
     }
-    // 기본 제안 수
-    const defaultCount = storeId === 'chicken' ? 2 : 1
-    setPendingTasksCount(defaultCount)
-    localStorage.setItem('localmate_pending_tasks_count', defaultCount.toString())
+
+    // 저장된 데이터가 없는 경우 localStorage의 전역 카운트 확인, 없으면 0으로 처리
+    const directSaved = localStorage.getItem('localmate_pending_tasks_count')
+    const fallbackCount = directSaved !== null ? Number(directSaved) : 0
+    setPendingTasksCount(fallbackCount)
   }
 
   useEffect(() => {
@@ -102,7 +97,7 @@ export function Sidebar({
     }
     window.addEventListener('storeChange', handleSync)
 
-    // 🎯 TasksView에서 승인/보류/주문 발생 시 실시간 뱃지 숫자 갱신 이벤트 수신
+    // 🎯 TasksView에서 승인/보류 시 실시간 뱃지 숫자 갱신 이벤트 수신
     const handlePendingTasksUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<number>
       if (typeof customEvent.detail === 'number') {
@@ -127,7 +122,6 @@ export function Sidebar({
 
   const currentStore = stores.find((s) => s.id === selectedStoreId) || stores[0]
 
-  // 🎯 badge 필드를 고정값 대신 동적 pendingTasksCount와 연결
   const tabs = [
     { id: 'dashboard', label: '통합 대시보드', icon: BarChart3, href: '/' },
     { id: 'reviews', label: '고객 리뷰 관리', icon: MessageSquare, href: '/reviews' },
@@ -210,7 +204,7 @@ export function Sidebar({
                   <Icon className="size-5 shrink-0" />
                   {!isCollapsed && <span className="font-medium text-sm whitespace-nowrap">{tab.label}</span>}
                   
-                  {/* 🎯 뱃지 숫자가 0보다 클 때만 빨간 원형 뱃지 출력 (0건이면 완벽히 소멸) */}
+                  {/* 🎯 0건 초과일 때만 뱃지 표시, 0건이면 완전 제거 */}
                   {!isCollapsed && typeof tab.badge === 'number' && tab.badge > 0 && (
                     <span className="ml-auto bg-red-500 text-white text-[11px] font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0 shadow-sm animate-in fade-in">
                       {tab.badge}
