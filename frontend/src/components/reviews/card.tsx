@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Sparkles, MessageSquare, Pencil, Trash2, Loader2, Gift } from 'lucide-react'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { generateReplyDraft, type Review } from '@/lib/mock-data'
+import { type Review } from '@/lib/mock-data'
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)) }
 
@@ -35,7 +35,7 @@ export function ReviewCard({
     setTimeout(() => {
       onGenerate(review.id)
       setIsGenerating(false)
-    }, 500)
+    }, 400)
   }
 
   return (
@@ -70,7 +70,7 @@ export function ReviewCard({
             )}
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex text-warning text-sm">
+            <div className="flex text-amber-400 text-sm">
               {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
             </div>
             <span className="text-xs text-muted-foreground">{review.menu && `• ${review.menu}`}</span>
@@ -88,7 +88,7 @@ export function ReviewCard({
               key={idx}
               className={cn(
                 'rounded-full px-2.5 py-0.5 text-xs font-medium',
-                tag.includes('불만') || tag.includes('요청') ? 'bg-destructive/10 text-destructive' : 'bg-success/10 text-success'
+                tag.includes('불만') || tag.includes('요청') ? 'bg-destructive/10 text-destructive' : 'bg-emerald-50 text-emerald-600 font-semibold'
               )}
             >
               {tag}
@@ -113,7 +113,7 @@ export function ReviewCard({
           >
             {isGenerating ? (
               <>
-                <Loader2 className="size-3.5 animate-spin" /> 답변을 생성중입니다...
+                <Loader2 className="size-3.5 animate-spin" /> 초안 생성 중...
               </>
             ) : (
               <>
@@ -132,14 +132,18 @@ export function ReviewCard({
         </div>
       )}
 
-      {/* 5. 편집 모드 (연보라 박스 + 내부 하얀색 입력창 구조로 원본 완벽 복제) */}
+      {/* 5. 편집 모드 (설정된 어조/정책이 완벽 반영된 초안 표시) */}
       {isEditing && (
         <div className="mt-2 w-full rounded-2xl bg-[#F4F5FB] p-5 border border-indigo-100 shadow-sm">
-          <div className="mb-3 flex items-center gap-1.5 text-xs font-semibold text-indigo-700">
-            <Sparkles className="size-3.5" /> {review.reply ? '답글 수정' : 'AI 추천 답글 초안'}
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700">
+              <Sparkles className="size-3.5" /> {review.reply ? '답글 수정' : 'AI 추천 답글 초안'}
+            </div>
+            <span className="text-[11px] text-indigo-500 font-medium bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">
+              매장 설정 어조 자동 적용됨
+            </span>
           </div>
           
-          {/* 원본처럼 연보라 박스 안에 쏙 들어가는 깔끔한 화이트 텍스트박스 */}
           <div className="rounded-xl border border-indigo-100 bg-white p-4 shadow-sm">
             <textarea
               value={draft || ''}
@@ -201,4 +205,5 @@ export function ReviewCard({
     </div>
   )
 }
+
 export default ReviewCard
