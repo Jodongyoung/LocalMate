@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { validateAndParseKoreanAddress } from '@/lib/weather-scenarios'
 
-// 초기 기본값 세팅 (카페와 치킨집 고정)
 const DEFAULT_SETTINGS = {
   cafe: {
     name: '☕ 동성로 카페 (본점)',
@@ -26,29 +26,37 @@ export function SettingsView() {
   const [selectedStoreId, setSelectedStoreId] = useState('cafe')
   const [formData, setFormData] = useState(DEFAULT_SETTINGS.cafe)
   const [isSaved, setIsSaved] = useState(false)
+  const [addressError, setAddressError] = useState<string | null>(null)
 
-  // 1. 선택된 매장 동기화 및 설정값 불러오기
   useEffect(() => {
     const savedStore = localStorage.getItem('localmate_store_id') || 'cafe'
     setSelectedStoreId(savedStore)
-    
+
     const savedSettings = localStorage.getItem(`localmate_settings_${savedStore}`)
     if (savedSettings) {
-      setFormData(JSON.parse(savedSettings))
+      try {
+        setFormData(JSON.parse(savedSettings))
+      } catch (e) {
+        setFormData(savedStore === 'cafe' ? DEFAULT_SETTINGS.cafe : DEFAULT_SETTINGS.chicken)
+      }
     } else {
       setFormData(savedStore === 'cafe' ? DEFAULT_SETTINGS.cafe : DEFAULT_SETTINGS.chicken)
     }
 
-    // 외부(사이드바/헤더)에서 매장 변경 시 즉시 감지
     const handleSync = (e: Event) => {
       const customEvent = e as CustomEvent<string>
       if (customEvent.detail) {
         const newStoreId = customEvent.detail
         setSelectedStoreId(newStoreId)
-        
+        setAddressError(null)
+
         const newSettings = localStorage.getItem(`localmate_settings_${newStoreId}`)
         if (newSettings) {
-          setFormData(JSON.parse(newSettings))
+          try {
+            setFormData(JSON.parse(newSettings))
+          } catch (e) {
+            setFormData(newStoreId === 'cafe' ? DEFAULT_SETTINGS.cafe : DEFAULT_SETTINGS.chicken)
+          }
         } else {
           setFormData(newStoreId === 'cafe' ? DEFAULT_SETTINGS.cafe : DEFAULT_SETTINGS.chicken)
         }
@@ -58,52 +66,71 @@ export function SettingsView() {
     return () => window.removeEventListener('storeChange', handleSync)
   }, [])
 
-  // 2. 폼 입력 핸들러
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
+    if (name === 'address') {
+      setAddressError(null)
+    }
   }
 
-  // 3. ✅ 업종(카테고리) 변경 시 해당 매장의 세팅 전체를 불러오도록 전환 (Store Switcher 역할)
   const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newCategory = e.target.value
     const newStoreId = newCategory === '카페' ? 'cafe' : 'chicken'
-    
-    // 대상 매장의 데이터 불러오기
+    setAddressError(null)
+
     const savedSettings = localStorage.getItem(`localmate_settings_${newStoreId}`)
     if (savedSettings) {
-      setFormData(JSON.parse(savedSettings))
+      try {
+        setFormData(JSON.parse(savedSettings))
+      } catch (e) {
+        setFormData(newStoreId === 'cafe' ? DEFAULT_SETTINGS.cafe : DEFAULT_SETTINGS.chicken)
+      }
     } else {
       setFormData(newStoreId === 'cafe' ? DEFAULT_SETTINGS.cafe : DEFAULT_SETTINGS.chicken)
     }
 
     setSelectedStoreId(newStoreId)
-
-    // 사이드바와 헤더에도 매장이 바뀌었다고 알림
     localStorage.setItem('localmate_store_id', newStoreId)
     window.dispatchEvent(new CustomEvent('storeChange', { detail: newStoreId }))
   }
 
-  // 4. ✅ 설정 저장 핸들러 (저장 즉시 사이드바/헤더 이름 실시간 업데이트)
+  // 🎯 설정 저장 및 주소 유효성 검증
   const handleSave = () => {
+    // 대한민국 주소 검증
+    const validation = validateAndParseKoreanAddress(formData.address)
+    if (!validation.isValid) {
+      setAddressError(validation.errorMsg || '정확한 주소를 입력해주세요.')
+      return
+    }
+
+    setAddressError(null)
+
     localStorage.setItem(`localmate_settings_${selectedStoreId}`, JSON.stringify(formData))
-    
-    // 헤더/사이드바 이름 변경 신호 발송
-    window.dispatchEvent(new Event('settingsChange')) 
-    
+    localStorage.setItem(`localmate_address_${selectedStoreId}`, formData.address)
+
+    window.dispatchEvent(new CustomEvent('settingsChange', { 
+      detail: { 
+        storeId: selectedStoreId, 
+        address: formData.address,
+        district: validation.district,
+        branchName: validation.branchName 
+      } 
+    }))
+
     setIsSaved(true)
     setTimeout(() => setIsSaved(false), 3000)
   }
 
-  // 5. ✅ 초기화 핸들러 (현재 선택된 매장의 데이터를 초기값으로 완전 복구)
   const handleReset = () => {
     if (confirm('현재 매장의 설정값을 초기화하시겠습니까?')) {
       const defaultData = selectedStoreId === 'cafe' ? DEFAULT_SETTINGS.cafe : DEFAULT_SETTINGS.chicken
       setFormData(defaultData)
+      setAddressError(null)
       localStorage.removeItem(`localmate_settings_${selectedStoreId}`)
-      
-      // 헤더/사이드바도 기본 이름으로 복구하라는 신호 발송
-      window.dispatchEvent(new Event('settingsChange')) 
+      localStorage.removeItem(`localmate_address_${selectedStoreId}`)
+
+      window.dispatchEvent(new CustomEvent('settingsChange', { detail: { storeId: selectedStoreId, address: defaultData.address } }))
     }
   }
 
@@ -154,8 +181,18 @@ export function SettingsView() {
               name="address"
               value={formData.address}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" 
+              placeholder="예: 서울 강남구, 대구 중구, 포항 북구"
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm transition ${
+                addressError 
+                  ? 'border-rose-400 focus:ring-2 focus:ring-rose-400 bg-rose-50/20' 
+                  : 'border-slate-300 focus:ring-2 focus:ring-indigo-500'
+              }`} 
             />
+            {addressError && (
+              <p className="mt-1.5 text-xs text-rose-500 font-medium flex items-center gap-1">
+                <span>⚠️</span> {addressError}
+              </p>
+            )}
           </div>
         </div>
       </div>

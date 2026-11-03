@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Bot, Send, Sparkles, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { STORE_DASHBOARD_DATA, CAFE_REVIEWS, CHICKEN_REVIEWS, assistantResponses, quickActions, type Review, type SentimentTag } from '@/lib/mock-data'
+import { getCurrentWeatherScenario, getSavedStoreLocation } from '@/lib/weather-scenarios'
 import { cn } from '@/lib/utils'
 
 type Message = { role: 'user' | 'assistant'; content: string }
@@ -99,14 +100,19 @@ export function AiAssistant({
     return sId === 'cafe' ? CAFE_REVIEWS : CHICKEN_REVIEWS
   }
 
+  // 🎯 설정된 주소에서 정확한 지역 지점명(예: "서울 강남점", "포항 북구점")을 가져와 인사말 생성
   const generateGreeting = (sId: string, revs: Review[]) => {
-    const storeInfo = sId === 'cafe' ? STORE_DASHBOARD_DATA.cafe : STORE_DASHBOARD_DATA.chicken
-    const storeName = sId === 'cafe' ? '대구 동성로점' : '수성 치킨점'
+    const isChicken = sId.includes('치킨') || sId.includes('chicken')
+    const storeKey = isChicken ? 'chicken' : 'cafe'
+    const storeInfo = isChicken ? STORE_DASHBOARD_DATA.chicken : STORE_DASHBOARD_DATA.cafe
+    
+    const { branchName } = getSavedStoreLocation(storeKey)
+    
     const unansweredCount = revs.filter(r => !r.reply).length
     const salesFormatted = new Intl.NumberFormat('ko-KR').format(storeInfo.kpis.todaySales)
     const delta = storeInfo.kpis.todayDelta
 
-    let greeting = `사장님, 안녕하세요! LocalMate AI 업무 비서입니다. 오늘 ${storeName} 매출은 ${salesFormatted}원으로 어제보다 ${delta}% 높아요.`
+    let greeting = `사장님, 안녕하세요! LocalMate AI 업무 비서입니다. 오늘 ${branchName} 매출은 ${salesFormatted}원으로 어제보다 ${delta}% 높아요.`
     if (unansweredCount > 0) {
       greeting += ` 현재 확인이 필요한 미답변 리뷰가 ${unansweredCount}건 있어요.`
     } else {
@@ -141,12 +147,23 @@ export function AiAssistant({
       setMessages([{ role: 'assistant', content: generateGreeting(currentStore, revs) }])
     }
 
+    // 🎯 설정 저장 시 지점명과 날씨 반영하여 인사말 즉각 갱신
+    const handleSettingsSync = () => {
+      const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
+      setStoreId(currentStore)
+      const revs = loadStoreReviews(currentStore)
+      setCurrentReviews(revs)
+      setMessages([{ role: 'assistant', content: generateGreeting(currentStore, revs) }])
+    }
+
     window.addEventListener('storeChange', handleStoreSync)
     window.addEventListener('reviewsUpdated', handleReviewSync)
+    window.addEventListener('settingsChange', handleSettingsSync)
 
     return () => {
       window.removeEventListener('storeChange', handleStoreSync)
       window.removeEventListener('reviewsUpdated', handleReviewSync)
+      window.removeEventListener('settingsChange', handleSettingsSync)
     }
   }, [])
 
@@ -166,19 +183,19 @@ export function AiAssistant({
     return `이번 달 총 ${totalCount}건의 리뷰 중 불만·개선요청 데이터를 분석했어요.\n\n1. 대기시간 지연 (24%) — 금·토 저녁 7~9시에 집중돼요.\n2. 포장 누락 (12%) — 음료·치즈볼 등 사이드 메뉴 누락이 대부분이에요.\n3. 음식 온도 (9%) — 대부분 배달 지연과 함께 발생했어요.\n\n💡 피크타임 조리 인력 1명 보강과 포장 체크리스트 도입을 추천드려요.`
   }
 
-  // 🎯 모든 추천 질문 항목에 반짝이 아이콘(✨)을 일괄적으로 적용하여 완벽하게 통일
+  const currentWeather = getCurrentWeatherScenario(storeId)
+
   const unifiedQuickActions = [
+    currentWeather.quickChipText,
     '✨ 리뷰 답글 일괄 초안',
     '✨ 이번 달 주요 불만 요약',
-    '✨ 비 오는 날 매출 증대 팁',
     '✨ 이번 주 매출 요약해줘',
     '✨ 단골 고객 통계'
   ]
 
   function send(text: string) {
-    // 내부적으로 비교할 때는 아이콘 제거한 순수 텍스트로 처리
-    const cleanText = text.replace('✨ ', '')
-    const content = cleanText.trim()
+    const cleanText = text.replace('✨ ', '').trim()
+    const content = cleanText
     if (!content || typing) return
 
     setMessages((prev) => [...prev, { role: 'user', content: text }])
@@ -187,12 +204,21 @@ export function AiAssistant({
 
     setTimeout(() => {
       let reply = ''
+      const cleanChipWeather = currentWeather.quickChipText.replace('✨ ', '').trim()
+
       if (content.includes('리뷰 답글 일괄 초안')) {
         reply = buildBulkDraftResponse(onGenerateAllDrafts(), currentReviews.length)
       } else if (content.includes('불만 요약')) {
         reply = getMonthlyComplaintSummary()
-      } else if (content.includes('비 오는 날')) {
-        reply = assistantResponses['✨ 비 오는 날 매출 증대 팁'] ?? '지난 6개월 데이터를 보면, 비 오는 날 주문이 평균 31% 늘어요!\n\n1️⃣ 오후 4시 전 "비 오는 날 2천원 할인" 쿠폰을 미리 발행하세요.\n2️⃣ 세트 메뉴 노출을 상단으로 올리면 객단가가 약 18% 올라가요.\n3️⃣ 예상 배달시간을 10분 넉넉하게 설정하면 대기불만 리뷰를 줄일 수 있어요.'
+      } else if (
+        content === cleanChipWeather ||
+        content.includes('날씨') ||
+        content.includes('비 오는 날') ||
+        content.includes('폭설') ||
+        content.includes('폭염') ||
+        content.includes('한파')
+      ) {
+        reply = currentWeather.botAnswer
       } else if (content.includes('매출')) {
         const storeInfo = storeId === 'cafe' ? STORE_DASHBOARD_DATA.cafe : STORE_DASHBOARD_DATA.chicken
         reply = `현재 이번 달 누적 매출은 ${new Intl.NumberFormat('ko-KR').format(storeInfo.salesTarget.current)}원으로 목표 대비 ${storeInfo.salesTarget.percentage}% 달성했어요. 남은 기간 순항 중입니다!`
@@ -355,7 +381,6 @@ export function AiAssistant({
             )}
           </div>
 
-          {/* ↔️ 좌우 화살표 버튼과 함께 모든 항목에 반짝이 아이콘이 일괄 통일된 추천 질문 영역 */}
           <div className="border-t bg-card p-2 flex items-center gap-1 relative shrink-0">
             <button
               type="button"

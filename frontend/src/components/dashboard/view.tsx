@@ -1,5 +1,8 @@
+'use client'
+
 import { useEffect, useRef, useState } from 'react'
 import { generateReplyDraft, initialReviews, type Review } from '@/lib/mock-data'
+import { getCurrentWeatherScenario, type WeatherCondition } from '@/lib/weather-scenarios'
 import { DashboardHeader } from './dashboard-header'
 import { SalesTargetCard } from './sales-target-card'
 import { KpiCards } from './kpi-cards'
@@ -9,12 +12,47 @@ import { AiSummary } from './ai-summary'
 export function DashboardView({ onLogout }: { onLogout: () => void }) {
   const [reviews, setReviews] = useState<Review[]>(initialReviews)
   const [drafts, setDrafts] = useState<Record<string, string>>({})
+  const [storeId, setStoreId] = useState('cafe')
+  const [weatherInfo, setWeatherInfo] = useState<WeatherCondition>(() => getCurrentWeatherScenario('cafe'))
 
   const reviewsRef = useRef(reviews)
 
   useEffect(() => {
     reviewsRef.current = reviews
   }, [reviews])
+
+  // 지점 동기화, 설정 변경(주소 수정) 및 30분 단위 날씨 실시간 체크
+  useEffect(() => {
+    const updateWeather = () => {
+      const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
+      setStoreId(currentStore)
+      setWeatherInfo(getCurrentWeatherScenario(currentStore))
+    }
+
+    updateWeather()
+
+    const handleStoreSync = (e: Event) => {
+      const customEvent = e as CustomEvent<string>
+      if (customEvent.detail) {
+        setStoreId(customEvent.detail)
+        setWeatherInfo(getCurrentWeatherScenario(customEvent.detail))
+      }
+    }
+
+    const handleSettingsSync = () => {
+      updateWeather()
+    }
+
+    window.addEventListener('storeChange', handleStoreSync)
+    window.addEventListener('settingsChange', handleSettingsSync)
+    const timer = setInterval(updateWeather, 60 * 1000)
+
+    return () => {
+      window.removeEventListener('storeChange', handleStoreSync)
+      window.removeEventListener('settingsChange', handleSettingsSync)
+      clearInterval(timer)
+    }
+  }, [])
 
   const unansweredCount = reviews.filter((r) => !r.reply).length
 
@@ -24,7 +62,6 @@ export function DashboardView({ onLogout }: { onLogout: () => void }) {
     setDrafts((prev) => ({ ...prev, [id]: generateReplyDraft(review) }))
   }
 
-  // Reads the ref so delayed callers (e.g. the assistant's typing timeout) always see the latest replies.
   function generateAllDrafts(): Review[] {
     const targets = reviewsRef.current.filter((r) => !r.reply)
     setDrafts((prev) => {
@@ -78,8 +115,10 @@ export function DashboardView({ onLogout }: { onLogout: () => void }) {
             <h1 className="mt-1 text-2xl md:text-3xl font-bold tracking-tight text-balance">
               사장님, 오늘도 좋은 하루 보내세요!
             </h1>
+            {/* 🎯 매장 설정 주소와 30분 주기 시간에 맞춰 실시간 동기화되는 날씨 브리핑 */}
             <p className="mt-2 text-sm text-muted-foreground leading-relaxed text-pretty">
-              오늘 저녁 7시 비 예보가 있어요. 주문량이 평소보다 약 30% 늘어날 것으로 예상됩니다.
+              <span className="font-semibold text-primary mr-1.5">[{weatherInfo.badgeText}]</span>
+              {weatherInfo.conditionText}. {weatherInfo.actionAdvice}
             </p>
           </div>
           <SalesTargetCard />
