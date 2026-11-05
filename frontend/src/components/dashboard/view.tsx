@@ -10,7 +10,7 @@ import { KpiCards } from './kpi-cards'
 import { SentimentChart } from './sentiment-chart'
 import { AiSummary } from './ai-summary'
 
-export function DashboardView({ onLogout }: { onLogout: () => void }) {
+export function DashboardView({ onLogout = () => {} }: { onLogout?: () => void }) {
   const [reviews, setReviews] = useState<Review[]>(initialReviews)
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [storeId, setStoreId] = useState('cafe')
@@ -141,7 +141,7 @@ export function DashboardView({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader onLogout={onLogout} unansweredCount={unansweredCount} />
+      <DashboardHeader onLogout={onLogout || (() => {})} unansweredCount={unansweredCount} />
 
       <main className="mx-auto max-w-7xl px-4 md:px-6 py-6 flex flex-col gap-6 pb-28">
         <section className="grid lg:grid-cols-[1fr_minmax(0,1.1fr)] gap-4 md:gap-6 items-stretch">
@@ -150,7 +150,6 @@ export function DashboardView({ onLogout }: { onLogout: () => void }) {
             <h1 className="mt-1 text-2xl md:text-3xl font-bold tracking-tight text-balance">
               사장님, 오늘도 좋은 하루 보내세요!
             </h1>
-            {/* 🎯 매장 설정 주소와 30분 주기 시간에 맞춰 실시간 동기화되는 날씨 브리핑 */}
             <p className="mt-2 text-sm text-muted-foreground leading-relaxed text-pretty">
               <span className="font-semibold text-primary mr-1.5">[{weatherInfo.badgeText}]</span>
               {weatherInfo.conditionText}. {weatherInfo.actionAdvice}
@@ -159,7 +158,7 @@ export function DashboardView({ onLogout }: { onLogout: () => void }) {
           <SalesTargetCard />
         </section>
 
-        <KpiCards unansweredCount={unansweredCount} />
+        <KpiCards {...({ unansweredCount } as any)} />
 
         <section className="grid lg:grid-cols-5 gap-4 md:gap-6">
           <div className="lg:col-span-3">
@@ -170,7 +169,7 @@ export function DashboardView({ onLogout }: { onLogout: () => void }) {
           </div>
         </section>
 
-        {/* 🎯 승인 대기 알림 배너 (대기 건수가 1건 이상일 때만 표시, 0건이면 완전 소멸) */}
+        {/* 🎯 승인 대기 알림 배너 */}
         {pendingTasks.count > 0 && (
           <div className="rounded-2xl border bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200 p-5 shadow-sm animate-in fade-in">
             <div className="flex items-start gap-3">
@@ -205,3 +204,5 @@ export function DashboardView({ onLogout }: { onLogout: () => void }) {
     </div>
   )
 }
+
+export default DashboardView

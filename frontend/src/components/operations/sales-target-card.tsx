@@ -5,7 +5,7 @@ import { formatKRW, salesTarget } from '@/lib/mock-data'
 const presets = [20_000_000, 25_000_000, 30_000_000]
 
 export function SalesTargetCard() {
-  const [goal, setGoal] = useState(salesTarget.goal)
+  const [goal, setGoal] = useState((salesTarget as any).goal ?? (salesTarget as any).target ?? 0)
   const [editing, setEditing] = useState(false)
   const current = salesTarget.current
   const percent = Math.min(100, Math.round((current / goal) * 100))

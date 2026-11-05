@@ -1,7 +1,13 @@
+'use client'
+
 import { useEffect, useRef, useState } from 'react'
 import { Bell, Check, ChevronDown, LogOut, Store } from 'lucide-react'
-import { stores } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
+
+const stores: Array<{ id: string; name: string; platform: string }> = [
+  { id: 'cafe', name: '☕ 동성로 카페 (본점)', platform: '배달의민족' },
+  { id: 'chicken', name: '🍗 수성 치킨 (지점)', platform: '쿠팡이츠' }
+]
 
 export function DashboardHeader({
   onLogout,
@@ -125,3 +131,5 @@ export function DashboardHeader({
     </header>
   )
 }
+
+export default DashboardHeader

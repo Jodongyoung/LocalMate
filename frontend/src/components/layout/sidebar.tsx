@@ -7,6 +7,7 @@ import {
   TrendingUp, 
   ClipboardList, 
   Settings,
+  LayoutGrid,
   ChevronDown,
   ChevronUp,
   ChevronLeft,
@@ -33,32 +34,21 @@ export function Sidebar({
   const [isBusinessDropdownOpen, setIsBusinessDropdownOpen] = useState(false)
   const [selectedStoreId, setSelectedStoreId] = useState('cafe')
   const [stores, setStores] = useState(DEFAULT_STORES)
-
-  // 🎯 AI 업무 및 승인 대기 건수 상태 (기본값 0)
   const [pendingTasksCount, setPendingTasksCount] = useState<number>(0)
 
-  // 1. 설정값에서 동적 상호명 불러오기
   const loadStoreNames = () => {
     const updatedStores = [...DEFAULT_STORES]
-    
     const cafeSettings = localStorage.getItem('localmate_settings_cafe')
     if (cafeSettings) {
-      try {
-        updatedStores[0].name = JSON.parse(cafeSettings).name
-      } catch (e) {}
+      try { updatedStores[0].name = JSON.parse(cafeSettings).name } catch (e) {}
     }
-    
     const chickenSettings = localStorage.getItem('localmate_settings_chicken')
     if (chickenSettings) {
-      try {
-        updatedStores[1].name = JSON.parse(chickenSettings).name
-      } catch (e) {}
+      try { updatedStores[1].name = JSON.parse(chickenSettings).name } catch (e) {}
     }
-    
     setStores(updatedStores)
   }
 
-  // 2. 🎯 매장별 승인 대기 건수 동기화 (새로고침 시 v5 저장소 정확히 조회)
   const syncPendingCount = (storeId: string) => {
     const savedProposals = localStorage.getItem(`localmate_proposals_v5_${storeId}`)
     if (savedProposals) {
@@ -70,24 +60,17 @@ export function Sidebar({
         return
       } catch (e) {}
     }
-
-    // 저장된 데이터가 없는 경우 localStorage의 전역 카운트 확인, 없으면 0으로 처리
     const directSaved = localStorage.getItem('localmate_pending_tasks_count')
-    const fallbackCount = directSaved !== null ? Number(directSaved) : 0
-    setPendingTasksCount(fallbackCount)
+    setPendingTasksCount(directSaved !== null ? Number(directSaved) : 0)
   }
 
   useEffect(() => {
     loadStoreNames()
-
     const saved = localStorage.getItem('localmate_store_id') || 'cafe'
     setSelectedStoreId(saved)
     syncPendingCount(saved)
 
-    // 설정창 저장 이벤트 감지
     window.addEventListener('settingsChange', loadStoreNames)
-
-    // 매장 변경 이벤트 감지
     const handleSync = (e: Event) => {
       const customEvent = e as CustomEvent<string>
       if (customEvent.detail) {
@@ -97,7 +80,6 @@ export function Sidebar({
     }
     window.addEventListener('storeChange', handleSync)
 
-    // 🎯 TasksView에서 승인/보류 시 실시간 뱃지 숫자 갱신 이벤트 수신
     const handlePendingTasksUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<number>
       if (typeof customEvent.detail === 'number') {
@@ -124,15 +106,10 @@ export function Sidebar({
 
   const tabs = [
     { id: 'dashboard', label: '통합 대시보드', icon: BarChart3, href: '/' },
+    { id: 'reservations', label: '실시간 테이블 & 예약', icon: LayoutGrid, href: '/reservations' },
     { id: 'reviews', label: '고객 리뷰 관리', icon: MessageSquare, href: '/reviews' },
     { id: 'operations', label: '매장 운영 분석', icon: TrendingUp, href: '/operations' },
-    { 
-      id: 'tasks', 
-      label: 'AI 업무 및 승인', 
-      icon: ClipboardList, 
-      href: '/tasks', 
-      badge: pendingTasksCount // 0건이면 뱃지 미출력
-    },
+    { id: 'tasks', label: 'AI 업무 및 승인', icon: ClipboardList, href: '/tasks', badge: pendingTasksCount },
     { id: 'settings', label: '매장 설정', icon: Settings, href: '/settings' },
   ]
 
@@ -204,7 +181,6 @@ export function Sidebar({
                   <Icon className="size-5 shrink-0" />
                   {!isCollapsed && <span className="font-medium text-sm whitespace-nowrap">{tab.label}</span>}
                   
-                  {/* 🎯 0건 초과일 때만 뱃지 표시, 0건이면 완전 제거 */}
                   {!isCollapsed && typeof tab.badge === 'number' && tab.badge > 0 && (
                     <span className="ml-auto bg-red-500 text-white text-[11px] font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0 shadow-sm animate-in fade-in">
                       {tab.badge}
