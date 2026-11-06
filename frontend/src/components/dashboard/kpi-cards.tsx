@@ -5,41 +5,60 @@ import { CalendarDays, Gift, MessageCircleWarning, TrendingUp, Wallet } from 'lu
 import { formatKRW, STORE_DASHBOARD_DATA, CAFE_REVIEWS, CHICKEN_REVIEWS, type Review } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
 
-export function KpiCards() {
-  const [kpis, setKpis] = useState(STORE_DASHBOARD_DATA.chicken.kpis)
-  const [unansweredCount, setUnansweredCount] = useState(0)
+function getLiveUnansweredCount(storeId: string): number {
+  if (typeof window === 'undefined') return 5
+  const keys = [
+    `localmate_reviews_v10_${storeId}`,
+    `localmate_reviews_v11_${storeId}`,
+    `localmate_reviews_v12_${storeId}`,
+    `localmate_reviews_${storeId}`
+  ]
 
-  // 현재 선택된 매장의 미답변 개수 실시간 계산 함수
-  const calcUnanswered = (storeId: string) => {
-    const storageKey = `localmate_reviews_${storeId}`
-    const saved = localStorage.getItem(storageKey)
-    let currentReviews: Review[] = []
+  for (const key of keys) {
+    const saved = localStorage.getItem(key)
     if (saved) {
       try {
-        currentReviews = JSON.parse(saved)
-      } catch (e) {
-        currentReviews = storeId === 'cafe' ? CAFE_REVIEWS : CHICKEN_REVIEWS
-      }
-    } else {
-      currentReviews = storeId === 'cafe' ? CAFE_REVIEWS : CHICKEN_REVIEWS
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter((r: any) => !r.reply).length
+        }
+      } catch (e) {}
     }
-    return currentReviews.filter(r => !r.reply).length
   }
+
+  const defaultList = storeId === 'chicken' ? CHICKEN_REVIEWS : CAFE_REVIEWS
+  return defaultList.filter((r: any) => !r.reply).length
+}
+
+export function KpiCards() {
+  const getInitialStore = () => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('localmate_store_id') || 'cafe'
+    }
+    return 'cafe'
+  }
+
+  const [kpis, setKpis] = useState(() => {
+    const s = getInitialStore()
+    return s === 'chicken' ? STORE_DASHBOARD_DATA.chicken.kpis : STORE_DASHBOARD_DATA.cafe.kpis
+  })
+  
+  // 🎯 첫 마운트 시점부터 5건으로 즉시 계산
+  const [unansweredCount, setUnansweredCount] = useState(() => getLiveUnansweredCount(getInitialStore()))
 
   useEffect(() => {
     const updateStoreData = (storeId: string) => {
-      if (storeId === 'cafe') {
-        setKpis(STORE_DASHBOARD_DATA.cafe.kpis)
-      } else {
+      if (storeId === 'chicken') {
         setKpis(STORE_DASHBOARD_DATA.chicken.kpis)
+      } else {
+        setKpis(STORE_DASHBOARD_DATA.cafe.kpis)
       }
-      setUnansweredCount(calcUnanswered(storeId))
+      setUnansweredCount(getLiveUnansweredCount(storeId))
     }
 
     const savedStore = localStorage.getItem('localmate_store_id') || 'cafe'
     updateStoreData(savedStore)
 
-    // 매장 변경 시 sync
     const handleStoreSync = (e: Event) => {
       const customEvent = e as CustomEvent<string>
       if (customEvent.detail) {
@@ -47,10 +66,9 @@ export function KpiCards() {
       }
     }
 
-    // 리뷰 답글 작성/삭제 시 실시간 sync
     const handleReviewSync = () => {
       const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
-      setUnansweredCount(calcUnanswered(currentStore))
+      setUnansweredCount(getLiveUnansweredCount(currentStore))
     }
 
     window.addEventListener('storeChange', handleStoreSync)
@@ -130,3 +148,5 @@ export function KpiCards() {
     </section>
   )
 }
+
+export default KpiCards

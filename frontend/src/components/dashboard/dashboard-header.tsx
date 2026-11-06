@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { 
   Bell, 
   Store, 
@@ -20,6 +20,7 @@ interface DashboardHeaderProps {
 
 interface NotificationItem {
   id: string
+  category: 'reservation' | 'task' | 'review'
   type: 'reservation' | 'noshow' | 'task' | 'review' | 'full'
   title: string
   description: string
@@ -30,22 +31,33 @@ interface NotificationItem {
 
 export function DashboardHeader({ onLogout }: DashboardHeaderProps) {
   const navigate = useNavigate()
-  const [storeId, setStoreId] = useState('cafe')
-  const [storeName, setStoreName] = useState('동성로 카페 (본점)')
+  
+  const [storeId, setStoreId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('localmate_store_id') || 'cafe'
+    }
+    return 'cafe'
+  })
+  
+  const [storeName, setStoreName] = useState(storeId === 'cafe' ? '동성로 카페 (본점)' : '수성 치킨 (지점)')
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
-  const [hasUnread, setHasUnread] = useState(true)
+  const [activeTab, setActiveTab] = useState<'reservation' | 'task' | 'review'>('reservation')
+  
+  // 🎯 단순 열람 여부(hasUnread) 상태 제거 ➔ 오직 미해결 알림 개수(notifications.length)로만 뱃지 표시 제어
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // 1. 매장 상태 및 실시간 알림 데이터 집계
-  const syncNotifications = (currentStore: string) => {
+  // 매장별 테이블 및 리뷰 데이터를 완벽히 추적하여 알림 집계
+  const syncNotifications = useCallback((targetStore?: string) => {
+    const currentStore = targetStore || localStorage.getItem('localmate_store_id') || 'cafe'
     const isCafe = currentStore === 'cafe'
+    
     setStoreId(currentStore)
     setStoreName(isCafe ? '동성로 카페 (본점)' : '수성 치킨 (지점)')
 
     const list: NotificationItem[] = []
 
-    // A. 테이블 및 예약 상태 파악
+    // A. 매장별 독립된 테이블 관제 키 실시간 조회
     const savedTables = localStorage.getItem(`localmate_tables_${currentStore}`)
     if (savedTables) {
       try {
@@ -56,6 +68,7 @@ export function DashboardHeader({ onLogout }: DashboardHeaderProps) {
         if (availableCount === 0) {
           list.push({
             id: 'notif-full',
+            category: 'reservation',
             type: 'full',
             title: '매장 전석 만석 (Full)',
             description: '모든 테이블이 가용 중입니다. 신규 예약은 웨이팅으로 자동 전환됩니다.',
@@ -65,25 +78,27 @@ export function DashboardHeader({ onLogout }: DashboardHeaderProps) {
           })
         }
 
-        // 2) 노쇼 임박 테이블
-        const noShowTables = tables.filter(t => t.status === 'noshow_warning')
+        // 2) 노쇼 임박 테이블 (해결 시 자동 소멸)
+        const noShowTables = tables.filter(t => (t.status as string) === 'noshow' || (t.status as string) === 'noshow_warning')
         noShowTables.forEach(t => {
           list.push({
             id: `notif-noshow-${t.id}`,
+            category: 'reservation',
             type: 'noshow',
             title: `[노쇼 임박] ${t.name}`,
-            description: `${t.reservation?.guestName} 고객님 유예 시간 초과 임박! 좌석 회수를 검토하세요.`,
+            description: `${t.reservation?.guestName || '고객'}님 유예 시간 초과 임박! 좌석 회수를 검토하세요.`,
             time: '2분 전',
             targetPath: '/reservations',
             isUrgent: true
           })
         })
 
-        // 3) 최근 네이버 예약 건
+        // 3) 네이버 예약 건 전체 수집
         const reservedTables = tables.filter(t => t.status === 'reserved' && t.reservation)
-        reservedTables.slice(0, 2).forEach(t => {
+        reservedTables.forEach(t => {
           list.push({
             id: `notif-res-${t.id}`,
+            category: 'reservation',
             type: 'reservation',
             title: `[네이버 예약] ${t.name} 자동 배정 완료`,
             description: `${t.reservation?.guestName} 님 (${t.reservation?.guestCount}명) ${t.reservation?.reservedTime} 예약이 배정되었습니다.`,
@@ -94,50 +109,63 @@ export function DashboardHeader({ onLogout }: DashboardHeaderProps) {
       } catch (e) {}
     }
 
-    // B. AI 업무 승인 대기 파악
+    // B. AI 업무 승인 대기 파악 (승인 시 자동 소멸)
     const savedProposals = localStorage.getItem(`localmate_proposals_v5_${currentStore}`)
     if (savedProposals) {
       try {
         const parsed = JSON.parse(savedProposals)
         const pending = parsed.filter((p: any) => p.status === 'pending')
-        if (pending.length > 0) {
+        pending.forEach((p: any, idx: number) => {
           list.push({
-            id: 'notif-task',
+            id: `notif-task-${idx}`,
+            category: 'task',
             type: 'task',
-            title: `AI 긴급 제안 ${pending.length}건 승인 대기`,
-            description: pending[0]?.title || '매장 운영 최적화를 위한 AI 조치가 대기 중입니다.',
+            title: p.title || `AI 긴급 제안 승인 대기`,
+            description: p.description || '매장 운영 최적화를 위한 AI 조치가 대기 중입니다.',
             time: '15분 전',
             targetPath: '/tasks',
             isUrgent: true
           })
-        }
+        })
       } catch (e) {}
     }
 
-    // C. 🎯 실시간 영속화된 리뷰 데이터 기반 미답변 건수 직접 산출
-    const savedReviews = localStorage.getItem(`localmate_reviews_v2_${currentStore}`)
-    let unansweredCount = 0
-    if (savedReviews) {
-      try {
-        const parsedReviews = JSON.parse(savedReviews)
-        unansweredCount = parsedReviews.filter((r: any) => !r.reply).length
-      } catch (e) {}
+    // C. 매장별 미답변 리뷰 데이터 집계 (답변 완료 시 자동 소멸)
+    const reviewKeys = [
+      `localmate_reviews_v12_${currentStore}`,
+      `localmate_reviews_v11_${currentStore}`,
+      `localmate_reviews_v10_${currentStore}`,
+      `localmate_reviews_v2_${currentStore}`
+    ]
+    
+    let unanswerList: any[] = []
+    for (const key of reviewKeys) {
+      const savedReviews = localStorage.getItem(key)
+      if (savedReviews) {
+        try {
+          const parsedReviews = JSON.parse(savedReviews)
+          if (Array.isArray(parsedReviews) && parsedReviews.length > 0) {
+            unanswerList = parsedReviews.filter((r: any) => !r.reply)
+            break
+          }
+        } catch (e) {}
+      }
     }
 
-    // 미답변 리뷰가 1건 이상일 때만 알림 목록에 추가 (0건이면 완벽히 제외!)
-    if (unansweredCount > 0) {
+    unanswerList.forEach((r, idx) => {
       list.push({
-        id: 'notif-review',
+        id: `notif-review-${idx}`,
+        category: 'review',
         type: 'review',
-        title: `미답변 고객 리뷰 ${unansweredCount}건 대기`,
-        description: 'AI가 사장님 맞춤 어조로 작성한 답글 초안이 준비되어 있습니다.',
+        title: `미답변 고객 리뷰 (${r.customerId || '고객님'})`,
+        description: r.text || 'AI가 사장님 맞춤 어조로 작성한 답글 초안이 준비되어 있습니다.',
         time: '방금 전',
         targetPath: '/reviews'
       })
-    }
+    })
 
     setNotifications(list)
-  }
+  }, [])
 
   useEffect(() => {
     const current = localStorage.getItem('localmate_store_id') || 'cafe'
@@ -145,9 +173,8 @@ export function DashboardHeader({ onLogout }: DashboardHeaderProps) {
 
     const handleStoreChange = (e: Event) => {
       const customEvent = e as CustomEvent<string>
-      if (customEvent.detail) {
-        syncNotifications(customEvent.detail)
-      }
+      const newStore = customEvent.detail || localStorage.getItem('localmate_store_id') || 'cafe'
+      syncNotifications(newStore)
     }
 
     const handleUpdate = () => {
@@ -155,10 +182,10 @@ export function DashboardHeader({ onLogout }: DashboardHeaderProps) {
       syncNotifications(currentStore)
     }
 
-    // 리뷰 상태 업데이트 리스너 연결
     window.addEventListener('storeChange', handleStoreChange)
     window.addEventListener('pendingTasksUpdated', handleUpdate)
     window.addEventListener('reviewsUpdated', handleUpdate)
+    window.addEventListener('storage', handleUpdate)
 
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -171,14 +198,21 @@ export function DashboardHeader({ onLogout }: DashboardHeaderProps) {
       window.removeEventListener('storeChange', handleStoreChange)
       window.removeEventListener('pendingTasksUpdated', handleUpdate)
       window.removeEventListener('reviewsUpdated', handleUpdate)
+      window.removeEventListener('storage', handleUpdate)
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [])
+  }, [syncNotifications])
 
   const handleNotificationClick = (path: string) => {
     setIsDropdownOpen(false)
     navigate(path)
   }
+
+  const reservationCount = notifications.filter(n => n.category === 'reservation').length
+  const taskCount = notifications.filter(n => n.category === 'task').length
+  const reviewCount = notifications.filter(n => n.category === 'review').length
+
+  const filteredNotifications = notifications.filter(n => n.category === activeTab)
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-4 md:px-6 backdrop-blur font-sans">
@@ -204,18 +238,19 @@ export function DashboardHeader({ onLogout }: DashboardHeaderProps) {
       {/* 우측: 알림 벨 & 사장님 프로필 */}
       <div className="flex items-center gap-3 relative" ref={dropdownRef}>
         
-        {/* 알림 벨 버튼 */}
+        {/* 🎯 알림 벨 버튼 (오직 미해결 알림 총 개수가 0보다 클 때만 붉은색 펄스 뱃지 유지) */}
         <button
           type="button"
           onClick={() => {
+            const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
+            syncNotifications(currentStore)
             setIsDropdownOpen(!isDropdownOpen)
-            setHasUnread(false)
           }}
           className="relative p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
           title="매장 실시간 알림"
         >
           <Bell className="size-5" />
-          {hasUnread && notifications.length > 0 && (
+          {notifications.length > 0 && (
             <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" />
@@ -225,24 +260,70 @@ export function DashboardHeader({ onLogout }: DashboardHeaderProps) {
 
         {/* 팝업: 실시간 매장 알림 센터 */}
         {isDropdownOpen && (
-          <div className="absolute right-0 top-12 w-80 sm:w-96 rounded-2xl border border-slate-200 bg-white shadow-xl py-3 z-50 animate-in fade-in slide-in-from-top-2">
+          <div className="absolute right-0 top-12 w-84 sm:w-96 rounded-2xl border border-slate-200 bg-white shadow-xl py-3 z-50 animate-in fade-in slide-in-from-top-2">
             <div className="flex items-center justify-between px-4 pb-2.5 border-b border-slate-100">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-bold text-slate-900">실시간 매장 알림 센터</span>
                 <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-600">
-                  {notifications.length}건
+                  총 {notifications.length}건
                 </span>
               </div>
-              <span className="text-[11px] text-slate-400 font-normal">실시간 동기화</span>
+              <button 
+                onClick={() => {
+                  const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
+                  syncNotifications(currentStore)
+                }}
+                className="text-[11px] font-semibold text-blue-600 hover:underline"
+              >
+                실시간 동기화
+              </button>
             </div>
 
-            <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
-              {notifications.length === 0 ? (
+            {/* 카테고리 탭 영역 */}
+            <div className="flex border-b border-slate-100 px-3 pt-2 gap-1 bg-slate-50/50">
+              <button
+                type="button"
+                onClick={() => setActiveTab('reservation')}
+                className={`flex-1 pb-2 text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-1 ${
+                  activeTab === 'reservation'
+                    ? 'border-indigo-600 text-indigo-600 bg-white rounded-t-lg shadow-2xs'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                예약 ({reservationCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('task')}
+                className={`flex-1 pb-2 text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-1 ${
+                  activeTab === 'task'
+                    ? 'border-indigo-600 text-indigo-600 bg-white rounded-t-lg shadow-2xs'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                업무·승인 ({taskCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('review')}
+                className={`flex-1 pb-2 text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-1 ${
+                  activeTab === 'review'
+                    ? 'border-indigo-600 text-indigo-600 bg-white rounded-t-lg shadow-2xs'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                리뷰 ({reviewCount})
+              </button>
+            </div>
+
+            {/* 탭별 알림 리스트 */}
+            <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
+              {filteredNotifications.length === 0 ? (
                 <div className="p-8 text-center text-xs text-slate-400">
-                  확인할 신규 알림이 없습니다.
+                  해당 항목에 새로운 알림이 없습니다.
                 </div>
               ) : (
-                notifications.map((item) => (
+                filteredNotifications.map((item) => (
                   <div
                     key={item.id}
                     onClick={() => handleNotificationClick(item.targetPath)}
@@ -307,7 +388,7 @@ export function DashboardHeader({ onLogout }: DashboardHeaderProps) {
         {/* 사장님 프로필 표시 */}
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-700 border border-indigo-200">
-            김
+            <span>김</span>
           </div>
           <div className="hidden sm:flex flex-col">
             <span className="text-xs font-bold text-slate-800">김사장님</span>
@@ -320,3 +401,5 @@ export function DashboardHeader({ onLogout }: DashboardHeaderProps) {
     </header>
   )
 }
+
+export default DashboardHeader
