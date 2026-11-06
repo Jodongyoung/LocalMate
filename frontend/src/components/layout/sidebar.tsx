@@ -8,6 +8,7 @@ import {
   ClipboardList, 
   Settings,
   LayoutGrid,
+  Sparkles,
   ChevronDown,
   ChevronUp,
   ChevronLeft,
@@ -108,6 +109,7 @@ export function Sidebar({
     { id: 'dashboard', label: '통합 대시보드', icon: BarChart3, href: '/' },
     { id: 'reservations', label: '실시간 테이블 & 예약', icon: LayoutGrid, href: '/reservations' },
     { id: 'reviews', label: '고객 리뷰 관리', icon: MessageSquare, href: '/reviews' },
+    { id: 'marketing', label: 'AI SNS 마케팅', icon: Sparkles, href: '/marketing' },
     { id: 'operations', label: '매장 운영 분석', icon: TrendingUp, href: '/operations' },
     { id: 'tasks', label: 'AI 업무 및 승인', icon: ClipboardList, href: '/tasks', badge: pendingTasksCount },
     { id: 'settings', label: '매장 설정', icon: Settings, href: '/settings' },
@@ -175,7 +177,7 @@ export function Sidebar({
                   href={tab.href}
                   title={isCollapsed ? tab.label : undefined}
                   className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 px-3'} py-3 w-full rounded-lg transition-colors ${
-                    isActive ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100'
+                    isActive ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-600 hover:bg-slate-100'
                   }`}
                 >
                   <Icon className="size-5 shrink-0" />

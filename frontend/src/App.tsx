@@ -4,6 +4,7 @@ import { Layout } from '@/components/layout/layout'
 import { DashboardView } from '@/components/dashboard/view'
 import { ReservationsView } from '@/components/reservations/view'
 import { ReviewsView } from '@/components/reviews/view'
+import { MarketingView } from '@/components/marketing/marketing-view' // 🎯 1. 마케팅 뷰 임포트 추가
 import { OperationsView } from '@/components/operations/view'
 import { TasksView } from '@/components/tasks/view'
 import { SettingsView } from '@/components/settings/view'
@@ -38,9 +39,10 @@ export default function App() {
       <BrowserRouter>
         <Layout>
           <Routes>
-          <Route path="/" element={<DashboardView onLogout={() => {}} />} />
+            <Route path="/" element={<DashboardView onLogout={() => {}} />} />
             <Route path="/reservations" element={<ReservationsView />} />
             <Route path="/reviews" element={<ReviewsView />} />
+            <Route path="/marketing" element={<MarketingView />} /> {/* 🎯 2. AI 마케팅 라우트 추가 */}
             <Route path="/operations" element={<OperationsView />} />
             <Route path="/tasks" element={<TasksView />} />
             <Route path="/settings" element={<SettingsView />} />
