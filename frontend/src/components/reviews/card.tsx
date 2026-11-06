@@ -61,6 +61,9 @@ export function ReviewCard({
     ? review.tags.filter(t => typeof t === 'string' && t.trim().length > 0)
     : []
 
+  // 🎯 뱃지 데이터 추출 (ReviewsView에서 전달된 loyaltyBadge 활용)
+  const loyaltyBadge = (review as any).loyaltyBadge
+
   const handleAIButtonClick = () => {
     setIsGenerating(true)
     setTimeout(() => {
@@ -108,6 +111,14 @@ export function ReviewCard({
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-slate-900 text-sm">{customerName}</span>
+            
+            {/* 🎯 [추가됨] 고객 주문 횟수 & 단골 뱃지 렌더링 */}
+            {loyaltyBadge && (
+              <span className={`px-2 py-0.5 rounded-full text-[11px] border font-medium ${loyaltyBadge.className}`}>
+                {loyaltyBadge.text}
+              </span>
+            )}
+
             <span className="text-xs text-slate-400">{reviewDate}</span>
             
             {/* 리뷰이벤트 뱃지 */}
@@ -122,7 +133,7 @@ export function ReviewCard({
             <div className="flex text-amber-400 text-sm tracking-tight">
               {yellowStars}{greyStars}
             </div>
-            <span className="text-xs text-slate-500">• {menuName}</span>
+            <span className="text-xs text-slate-500">{menuName}</span>
           </div>
         </div>
       </div>
@@ -253,5 +264,4 @@ export function ReviewCard({
   )
 }
 
-// named와 default 둘 다 지원
 export default ReviewCard

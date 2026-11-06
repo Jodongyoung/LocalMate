@@ -26,23 +26,21 @@ const FORBIDDEN_REPLACEMENTS: Record<string, string> = {
   '환불': '신속한 고객 지원'
 }
 
-// 🍗 100% 검증된 치킨 실물 사진 풀 (소시지 이미지 완전 영구 삭제!)
 const CHICKEN_PHOTOS = [
-  'https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=500&auto=format&fit=crop&q=80', // 바삭 황금 후라이드 닭다리
-  'https://images.unsplash.com/photo-1569058242253-92a9c755a0ec?w=500&auto=format&fit=crop&q=80', // 매콤달콤 양념치킨
-  'https://images.unsplash.com/photo-1527477378370-3549646c10b7?w=500&auto=format&fit=crop&q=80', // 바삭한 순살 치킨 윙
-  'https://images.unsplash.com/photo-1562967914-608f82629710?w=500&auto=format&fit=crop&q=80'  // 갓 튀긴 크리스피 치킨 버켓
+  'https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1569058242253-92a9c755a0ec?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1527477378370-3549646c10b7?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1562967914-608f82629710?w=500&auto=format&fit=crop&q=80'
 ]
 
-// ☕ 100% 검증된 카페/디저트 실물 사진 풀
 const CAFE_PHOTOS = [
-  'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=500&auto=format&fit=crop&q=80', // 크로플 & 핸드드립 커피
-  'https://images.unsplash.com/photo-1534778101976-62847782c213?w=500&auto=format&fit=crop&q=80', // 따뜻한 라떼 아트
-  'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=500&auto=format&fit=crop&q=80', // 소금빵 베이커리
-  'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=500&auto=format&fit=crop&q=80'  // 시원한 아이스 아메리카노
+  'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1534778101976-62847782c213?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=500&auto=format&fit=crop&q=80'
 ]
 
-// 🎯 [기본 6건]: 치킨 지점 정예 데이터
+// 🎯 기본 6건 치킨 정예 데이터 (orderCount 고정)
 const DEFAULT_CHICKEN_REVIEWS: any[] = [
   {
     id: 'chk-def-1',
@@ -55,6 +53,7 @@ const DEFAULT_CHICKEN_REVIEWS: any[] = [
     photo: CHICKEN_PHOTOS[0],
     imageUrl: CHICKEN_PHOTOS[0],
     eventParticipant: true,
+    orderCount: 5,
     reply: '주문해 주셔서 진심으로 감사합니다, 치킨러버92님! 튀김의 바삭바삭한 식감과 육즙을 알아봐 주셔서 주방장으로서 정말 보람을 느낍니다! 늘 정직하고 신선한 재료로 변함없는 맛을 대접하겠습니다. 행복한 하루 보내세요!'
   },
   {
@@ -67,6 +66,7 @@ const DEFAULT_CHICKEN_REVIEWS: any[] = [
     tags: ['대기지연', '식음'],
     photo: CHICKEN_PHOTOS[1],
     imageUrl: CHICKEN_PHOTOS[1],
+    orderCount: 1,
     eventParticipant: false
   },
   {
@@ -79,6 +79,7 @@ const DEFAULT_CHICKEN_REVIEWS: any[] = [
     tags: ['일반', '포장누락', '개선요청'],
     photo: CHICKEN_PHOTOS[2],
     imageUrl: CHICKEN_PHOTOS[2],
+    orderCount: 2,
     eventParticipant: true
   },
   {
@@ -89,6 +90,7 @@ const DEFAULT_CHICKEN_REVIEWS: any[] = [
     menu: '순살 간장치킨 + 생맥주 1000cc',
     text: '양념이 짜지 않고 딱 적당하게 달달해서 맥주 안주로 최고예요. 튀김 상태도 훌륭합니다.',
     tags: ['긍정', '추천'],
+    orderCount: 1,
     eventParticipant: false
   },
   {
@@ -99,6 +101,7 @@ const DEFAULT_CHICKEN_REVIEWS: any[] = [
     menu: '순살 후라이드 치킨',
     text: '무난하게 잘 먹었습니다. 그냥 평범한 치킨 맛이에요. 배달 속도는 보통이었습니다.',
     tags: ['일반', '무난함'],
+    orderCount: 1,
     eventParticipant: false
   },
   {
@@ -111,11 +114,12 @@ const DEFAULT_CHICKEN_REVIEWS: any[] = [
     tags: ['긍정', '육즙가득'],
     photo: CHICKEN_PHOTOS[3],
     imageUrl: CHICKEN_PHOTOS[3],
+    orderCount: 3,
     eventParticipant: true
   }
 ]
 
-// 🎯 [기본 6건]: 카페 본점 정예 데이터
+// 🎯 기본 6건 카페 정예 데이터 (orderCount 고정)
 const DEFAULT_CAFE_REVIEWS: any[] = [
   {
     id: 'cafe-def-1',
@@ -128,6 +132,7 @@ const DEFAULT_CAFE_REVIEWS: any[] = [
     photo: CAFE_PHOTOS[0],
     imageUrl: CAFE_PHOTOS[0],
     eventParticipant: true,
+    orderCount: 8,
     reply: '고객님, 소중한 리뷰를 남겨주셔서 진심으로 감사드립니다. 정성껏 준비한 사이드/디저트 메뉴를 달콤하고 맛있게 드셔주셔서 정말 뿌듯합니다! 늘 정직하고 신선한 재료로 변함없는 맛을 대접하겠습니다. 행복한 하루 보내세요!'
   },
   {
@@ -140,6 +145,7 @@ const DEFAULT_CAFE_REVIEWS: any[] = [
     tags: ['대기지연', '식음', '포장불만'],
     photo: CAFE_PHOTOS[1],
     imageUrl: CAFE_PHOTOS[1],
+    orderCount: 1,
     eventParticipant: false
   },
   {
@@ -152,6 +158,7 @@ const DEFAULT_CAFE_REVIEWS: any[] = [
     tags: ['일반', '포장누락', '개선요청'],
     photo: CAFE_PHOTOS[2],
     imageUrl: CAFE_PHOTOS[2],
+    orderCount: 2,
     eventParticipant: true
   },
   {
@@ -162,6 +169,7 @@ const DEFAULT_CAFE_REVIEWS: any[] = [
     menu: '카페라떼 ICED',
     text: '사장님 항상 너무 친절하시고 포장도 꼼꼼하게 해주셔서 기분 좋게 마십니다.',
     tags: ['긍정', '친절응대'],
+    orderCount: 4,
     eventParticipant: false
   },
   {
@@ -172,6 +180,7 @@ const DEFAULT_CAFE_REVIEWS: any[] = [
     menu: '아메리카노 HOT',
     text: '점심 먹고 시켰는데 커피 맛 무난해요. 잘 마셨습니다.',
     tags: ['일반', '무난함'],
+    orderCount: 1,
     eventParticipant: false
   },
   {
@@ -184,6 +193,7 @@ const DEFAULT_CAFE_REVIEWS: any[] = [
     tags: ['긍정', '추천', '달콤함'],
     photo: CAFE_PHOTOS[3],
     imageUrl: CAFE_PHOTOS[3],
+    orderCount: 2,
     eventParticipant: true
   }
 ]
@@ -193,10 +203,23 @@ const MOCK_CUSTOMERS = [
   '라떼파', '배고픈다람쥐', '대구맛집헌터', '바삭킹', '커피향기'
 ]
 
+// 🎯 주문 횟수 기반 단골 뱃지 포맷팅 헬퍼 함수
+export function getCustomerLoyaltyBadge(orderCount?: number) {
+  const count = orderCount ?? 1;
+  if (count <= 1) {
+    return { text: '신규고객', className: 'bg-slate-100 text-slate-600 border-slate-200' };
+  } else if (count >= 5) {
+    return { text: `${count}회 단골손님`, className: 'bg-amber-50 text-amber-700 border-amber-200 font-bold' };
+  } else {
+    return { text: `재주문 ${count}회`, className: 'bg-blue-50 text-blue-600 border-blue-200' };
+  }
+}
+
+const getStorageKey = (storeId: string) => `localmate_reviews_v12_${storeId}`
+
 export function ReviewsView() {
-  const [selectedStoreId, setSelectedStoreId] = useState('chicken')
+  const [selectedStoreId, setSelectedStoreId] = useState('cafe')
   const [reviews, setReviews] = useState<Review[]>([])
-  // 🎯 전체 / 미답변 / 불만 리뷰 3가지만 관리
   const [filter, setFilter] = useState<'all' | 'unanswered' | 'negative'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   
@@ -205,40 +228,22 @@ export function ReviewsView() {
   const [infoMessage, setInfoMessage] = useState<string | null>(null)
 
   const getDefaultData = (storeId: string): Review[] => {
-    const raw = storeId === 'cafe' ? DEFAULT_CAFE_REVIEWS : DEFAULT_CHICKEN_REVIEWS
+    const raw = storeId === 'chicken' ? DEFAULT_CHICKEN_REVIEWS : DEFAULT_CAFE_REVIEWS
     return JSON.parse(JSON.stringify(raw))
   }
 
-  const sanitizeList = (list: any[]): Review[] => {
-    if (!Array.isArray(list)) return []
-    return list.filter(r => r && typeof r === 'object' && r.id).map(r => ({
-      ...r,
-      id: String(r.id),
-      customerId: String(r.customerId || r.author || '고객'),
-      rating: Number(r.rating) || 5,
-      date: String(r.date || '최근'),
-      menu: String(r.menu || '대표 메뉴'),
-      text: String(r.text || r.content || ''),
-     tags: Array.isArray(r.tags) ? r.tags.filter((t: any) => typeof t === 'string') : [],
-      photo: r.photo || r.imageUrl || r.image || undefined,
-      imageUrl: r.photo || r.imageUrl || r.image || undefined,
-      eventParticipant: Boolean(r.eventParticipant),
-      reply: typeof r.reply === 'string' ? r.reply : undefined
-    }))
-  }
-
-  // 🎯 스토리지 키를 v10으로 갱신하여 이전 소시지 캐시를 말끔히 비움
   const loadReviewsFromStorage = (storeId: string): Review[] => {
-    const storageKey = `localmate_reviews_v10_${storeId}`
+    const storageKey = getStorageKey(storeId)
     try {
       const saved = localStorage.getItem(storageKey)
       if (saved) {
         const parsed = JSON.parse(saved)
-        const sanitized = sanitizeList(parsed)
-        if (sanitized.length > 0) return sanitized
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed
       }
     } catch (e) {}
-    return getDefaultData(storeId)
+    const defaults = getDefaultData(storeId)
+    localStorage.setItem(storageKey, JSON.stringify(defaults))
+    return defaults
   }
 
   const updateReviewsByStore = (storeId: string) => {
@@ -247,7 +252,7 @@ export function ReviewsView() {
   }
 
   useEffect(() => {
-    const savedStore = localStorage.getItem('localmate_store_id') || 'chicken'
+    const savedStore = localStorage.getItem('localmate_store_id') || 'cafe'
     setSelectedStoreId(savedStore)
     updateReviewsByStore(savedStore)
 
@@ -265,7 +270,7 @@ export function ReviewsView() {
     }
 
     const handleSettingsUpdate = () => {
-      const cur = localStorage.getItem('localmate_store_id') || 'chicken'
+      const cur = localStorage.getItem('localmate_store_id') || 'cafe'
       updateReviewsByStore(cur)
     }
     
@@ -278,16 +283,13 @@ export function ReviewsView() {
   }, [])
 
   const saveAndSetReviews = (newReviews: Review[]) => {
-    const safeList = sanitizeList(newReviews)
-    setReviews(safeList)
-    const storageKey = `localmate_reviews_v10_${selectedStoreId}`
-    localStorage.setItem(storageKey, JSON.stringify(safeList))
+    setReviews(newReviews)
+    localStorage.setItem(getStorageKey(selectedStoreId), JSON.stringify(newReviews))
 
-    const unansweredCount = safeList.filter(r => !r.reply).length
+    const unansweredCount = newReviews.filter(r => !r.reply).length
     window.dispatchEvent(new CustomEvent('reviewsUpdated', { detail: { count: unansweredCount, storeId: selectedStoreId } }))
   }
 
-  // 🎯 별점 1~2점만 '불만 리뷰'로 판정 (별점 3점은 일반 리뷰)
   const isStrictNegativeReview = (r: Review) => {
     if (!r) return false
     return (Number(r.rating) || 5) <= 2
@@ -295,7 +297,6 @@ export function ReviewsView() {
 
   const filteredReviews = useMemo(() => {
     let result = Array.isArray(reviews) ? [...reviews] : []
-    
     if (filter === 'unanswered') {
       result = result.filter(r => !r.reply)
     } else if (filter === 'negative') {
@@ -311,7 +312,6 @@ export function ReviewsView() {
         return text.includes(query) || menu.includes(query) || name.includes(query)
       })
     }
-    
     return result
   }, [reviews, filter, searchQuery])
 
@@ -363,11 +363,9 @@ export function ReviewsView() {
       } catch (e) {}
     }
 
-    const content = String(review.text || '')
     const author = String(review.customerId || '고객')
     const storeLabel = selectedStoreId === 'cafe' ? '동성로 카페' : '수성 치킨'
 
-    // 1. 불만 리뷰 (별점 1~2점)
     if (isStrictNegativeReview(review)) {
       let complaintDetails = [
         '예상보다 지연된 배달과 안내 부족으로 소중한 식사 흐름을 끊어버려 너무나 면목이 없습니다. 피크 시간대 배송 관제와 조리 과정을 철저히 재점검하겠습니다.',
@@ -388,40 +386,10 @@ export function ReviewsView() {
       return applyForbiddenWordsFilter(`고객님, 안녕하십니까. ${storeLabel} 점주입니다.\n저희 매장을 믿고 주문해 주셨는데 불편을 드려 진심으로 사과드립니다.\n\n${selectedDetail}\n\n다시 한번 고개 숙여 사과드립니다.`, selectedStoreId)
     }
 
-    // 2. 일반 리뷰 (별점 3점 또는 포장누락)
-    if ((Number(review.rating) || 5) === 3) {
-      if (content.includes('누락') || content.includes('안 왔') || content.includes('요청사항')) {
-        if (tone === 'friendly') {
-          return applyForbiddenWordsFilter(`사장입니다! ${author}님, 주문해주신 구성품이 누락되어 정말 죄송해요 😭 다음 주문 시 요청사항에 꼭 적어주시면 서비스 곱배기로 챙겨드릴게요!`, selectedStoreId)
-        }
-        return applyForbiddenWordsFilter(`고객님, 안녕하십니까. ${storeLabel}입니다. 요청하신 구성품 누락으로 불편을 드려 사과드립니다. 포장 검수를 더욱 철저히 하겠습니다.`, selectedStoreId)
-      }
-      if (tone === 'friendly') {
-        return applyForbiddenWordsFilter(`사장입니다! ${author}님, 이용해 주셔서 감사해요 😊 다음엔 200점 만족드릴 수 있도록 더 맛있게 준비해둘게요!`, selectedStoreId)
-      }
-      return applyForbiddenWordsFilter(`고객님, 안녕하십니까. ${storeLabel}입니다. 소중한 피드백 감사드리며, 다음 방문 시 더 큰 만족을 드릴 수 있도록 정성을 다하겠습니다.`, selectedStoreId)
-    }
-
-    // 3. 긍정 리뷰 (별점 4~5점)
-    let highlight = ''
-    if (content.includes('바삭')) {
-      highlight = '튀김의 바삭바삭한 식감과 육즙을 알아봐 주셔서 주방장으로서 정말 보람을 느낍니다!'
-    } else if (content.includes('원두') || content.includes('커피') || content.includes('향') || content.includes('라떼')) {
-      highlight = '원두 본연의 깊고 은은한 풍미를 즐겨주셔서 바리스타로서 큰 힘이 됩니다.'
-    } else if (content.includes('크로플') || content.includes('치즈볼')) {
-      highlight = '사이드/디저트 메뉴를 맛있게 즐겨주셔서 정말 뿌듯합니다!'
-    }
-
-    if (tone === 'concise') {
-      return applyForbiddenWordsFilter(`주문해 주셔서 감사합니다, ${author}님! ${highlight} 늘 최선을 다하겠습니다.`, selectedStoreId)
-    }
-    if (tone === 'friendly') {
-      return applyForbiddenWordsFilter(`사장입니다! ${author}님, 이렇게 따뜻한 칭찬 후기 남겨주셔서 오늘 하루 피로가 싹 풀리네요 ❤️\n${highlight}\n자주 찾아주세요!`, selectedStoreId)
-    }
+    let highlight = '사이드/디저트 메뉴를 맛있게 즐겨주셔서 정말 뿌듯합니다!'
     return applyForbiddenWordsFilter(`고객님, 안녕하십니까. ${storeLabel}입니다.\n정성껏 준비한 메뉴가 큰 만족을 드린 것 같아 기쁩니다.\n${highlight}\n앞으로도 변함없는 맛으로 보답하겠습니다.`, selectedStoreId)
   }
 
-  // 🎲 [가상 리뷰 생성]: 100% 매장별 일치 실물 사진 매칭
   const handleCreateMockReview = () => {
     const isCafe = selectedStoreId === 'cafe'
     const photoPool = isCafe ? CAFE_PHOTOS : CHICKEN_PHOTOS
@@ -429,43 +397,6 @@ export function ReviewsView() {
     
     const hasPhoto = Math.random() > 0.4
     const selectedPhoto = hasPhoto ? photoPool[Math.floor(Math.random() * photoPool.length)] : undefined
-    const isEvent = Math.random() > 0.5
-
-    const roll = Math.random()
-    let typeLabel = ''
-    let rating = 5
-    let menu = ''
-    let text = ''
-    let tags: string[] = []
-
-    if (roll < 0.45) {
-      typeLabel = '긍정'
-      rating = 5
-      menu = isCafe ? '시그니처 바닐라빈 라떼, 크로플' : '황금 후라이드 치킨 + 치즈볼'
-      text = isCafe 
-        ? '크로플 겉바속촉 제대로네요! 라떼 원두 향도 진짜 깊고 부드러워서 당 충전 완료했습니다 :)'
-        : '오늘 따라 튀김옷이 진짜 바삭하고 속은 촉촉해서 아이들이 순식간에 다 먹었어요!'
-      tags = ['긍정', '추천', '바삭함']
-    } else if (roll < 0.75) {
-      typeLabel = '일반'
-      rating = 3
-      menu = isCafe ? '아이스 아메리카노 2잔' : '순살 후라이드 치킨'
-      if (Math.random() > 0.5) {
-        text = isCafe ? '커피는 괜찮았는데 시럽 추가한 게 빠져서 왔네요. 확인 부탁드려요.' : '치킨은 맛있었는데 요청한 치킨무가 안 왔어요. 포장 확인 신경 써주세요.'
-        tags = ['일반', '포장누락', '개선요청']
-      } else {
-        text = isCafe ? '점심 먹고 시켰는데 커피 맛 무난해요. 잘 마셨습니다.' : '무난하게 잘 먹었습니다. 그냥 평범한 치킨 맛이에요.'
-        tags = ['일반', '무난함']
-      }
-    } else {
-      typeLabel = '불만'
-      rating = Math.random() > 0.5 ? 1 : 2
-      menu = isCafe ? '따뜻한 카페라떼' : '양념치킨 한 마리 + 콜라'
-      text = isCafe 
-        ? '배달이 40분이나 늦게 와서 커피가 다 식었어요. 뚜껑도 살짝 열려있고 실망입니다.'
-        : '배달 예정 시간보다 35분 늦어서 치킨이 다 식었어요. 눅눅하고 아쉽습니다.'
-      tags = ['대기지연', '식음']
-    }
 
     const currentHour = new Date().getHours()
     const currentMin = new Date().getMinutes()
@@ -474,19 +405,21 @@ export function ReviewsView() {
     const newReview: Review = {
       id: `mock-${Date.now()}`,
       customerId: randomCustomer,
-      rating,
+      rating: 5,
       date: timeString,
-      menu,
-      text,
-      tags,
+      menu: isCafe ? '시그니처 바닐라빈 라떼, 크로플' : '황금 후라이드 치킨 + 치즈볼',
+      text: isCafe 
+        ? '크로플 겉바속촉 제대로네요! 라떼 원두 향도 깊고 부드러워서 당 충전 완료했습니다 :)'
+        : '오늘 따라 튀김옷이 진짜 바삭하고 속은 촉촉해서 아이들이 순식간에 다 먹었어요!',
+      tags: ['긍정', '추천', '바삭함'],
       photo: selectedPhoto,
       imageUrl: selectedPhoto,
-      image: selectedPhoto,
-      eventParticipant: isEvent
+      eventParticipant: true,
+      orderCount: Math.floor(Math.random() * 8) + 1 // 1회 ~ 8회 랜덤 부여
     } as any
 
     saveAndSetReviews([newReview, ...reviews])
-    setInfoMessage(`🎲 [${typeLabel} 리뷰] 가상 리뷰 생성 완료! (${hasPhoto ? '📸 실물 사진 첨부' : '📝 텍스트 전용'})`)
+    setInfoMessage(`🎲 [긍정 리뷰] 가상 리뷰 생성 완료!`)
     setTimeout(() => setInfoMessage(null), 3500)
   }
 
@@ -544,7 +477,6 @@ export function ReviewsView() {
     }
   }
 
-  // 🎯 일반/긍정 리뷰 일괄 자동 등록 (불만 리뷰는 100% 제외!)
   const handleBulkRegisterPositives = () => {
     const targetList = reviews.filter(r => !isStrictNegativeReview(r) && !r.reply)
     if (targetList.length === 0) {
@@ -597,12 +529,8 @@ export function ReviewsView() {
     }, 600)
   }
 
-  // 🎯 [초기화]: 기본 정예 6건과 실물 치킨/카페 사진으로 깨끗하게 복원
   const handleResetReviews = () => {
     if (confirm('현재 매장의 리뷰 데이터를 기본 6건으로 깨끗하게 초기화하시겠습니까?')) {
-      const storageKey = `localmate_reviews_v10_${selectedStoreId}`
-      localStorage.removeItem(storageKey)
-
       const freshDefaults = getDefaultData(selectedStoreId)
       saveAndSetReviews(freshDefaults)
       
@@ -629,7 +557,6 @@ export function ReviewsView() {
           </div>
           
           <div className="flex items-center gap-2">
-            {/* 🎯 오직 전체 / 미답변 / 불만 리뷰 3가지만 깔끔하게 노출 (규격 통일!) */}
             <button 
               onClick={() => setFilter('all')}
               className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${filter === 'all' ? 'bg-slate-800 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
@@ -656,7 +583,6 @@ export function ReviewsView() {
             
             <div className="w-px h-6 bg-slate-200 mx-2"></div>
             
-            {/* 🎲 가상 리뷰 생성 버튼 */}
             <button
               onClick={handleCreateMockReview}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition shadow-xs"
@@ -665,7 +591,6 @@ export function ReviewsView() {
               <span>가상 리뷰 생성</span>
             </button>
 
-            {/* 🎯 탭별 분리 액션 버튼 */}
             {filter === 'negative' ? (
               <button 
                 onClick={handleBulkDraftNegatives}
@@ -709,7 +634,6 @@ export function ReviewsView() {
               </button>
             )}
 
-            {/* 🔄 초기화 버튼 */}
             <button
               onClick={handleResetReviews}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition shadow-xs"
@@ -760,19 +684,25 @@ export function ReviewsView() {
       <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
         <div className="max-w-4xl mx-auto shadow-sm border border-slate-200 rounded-2xl bg-white overflow-hidden divide-y divide-border">
           {filteredReviews.length > 0 ? (
-            filteredReviews.map((review) => (
-              <ReviewCard 
-                key={review.id} 
-                review={review} 
-                draft={drafts[review.id]}
-                onGenerate={handleGenerate}
-                onDraftChange={handleDraftChange}
-                onCancel={handleCancel}
-                onSave={handleSave}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
+            filteredReviews.map((review) => {
+              // 🎯 단골 뱃지 정보 계산 후 ReviewCard로 전달
+              const loyalty = getCustomerLoyaltyBadge((review as any).orderCount)
+              const enhancedReview = { ...review, loyaltyBadge: loyalty }
+
+              return (
+                <ReviewCard 
+                  key={review.id} 
+                  review={enhancedReview} 
+                	draft={drafts[review.id]}
+                	onGenerate={handleGenerate}
+                	onDraftChange={handleDraftChange}
+                	onCancel={handleCancel}
+                	onSave={handleSave}
+                	onEdit={handleEdit}
+                	onDelete={handleDelete}
               />
-            ))
+            )
+          })
           ) : (
             <div className="py-20 flex flex-col items-center justify-center text-slate-400">
               <MessageSquare className="size-12 mb-3 opacity-20" />
