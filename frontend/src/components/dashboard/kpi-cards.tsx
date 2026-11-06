@@ -10,6 +10,25 @@ const getInitialStoreId = (): string => {
   return 'cafe'
 }
 
+const BASE_SALES = {
+  cafe: { today: 980000, month: 15200000 },
+  chicken: { today: 1284000, month: 18500000 }
+}
+
+const getStoredSales = (storeId: string) => {
+  const isCafe = storeId === 'cafe'
+  const base = isCafe ? BASE_SALES.cafe : BASE_SALES.chicken
+  if (typeof window === 'undefined') return base
+
+  const todaySaved = localStorage.getItem(`localmate_today_sales_${storeId}`)
+  const monthSaved = localStorage.getItem(`localmate_month_sales_${storeId}`)
+
+  return {
+    today: todaySaved ? Number(todaySaved) : base.today,
+    month: monthSaved ? Number(monthSaved) : base.month
+  }
+}
+
 const getReviewStatsFromStorage = (storeId: string) => {
   if (typeof window === 'undefined') {
     return { unanswered: 4, eventCount: 24 }
@@ -32,45 +51,58 @@ const getReviewStatsFromStorage = (storeId: string) => {
 
 export function KpiCards({ unansweredCount: propUnanswered }: { unansweredCount?: number; [key: string]: any }) {
   const [storeId, setStoreId] = useState(getInitialStoreId)
+  const [sales, setSales] = useState(() => getStoredSales(getInitialStoreId()))
   const [stats, setStats] = useState(() => getReviewStatsFromStorage(getInitialStoreId()))
 
-  const updateStats = (targetStore: string) => {
+  const updateAllData = (targetStore: string) => {
     setStoreId(targetStore)
+    setSales(getStoredSales(targetStore))
     setStats(getReviewStatsFromStorage(targetStore))
   }
 
   useEffect(() => {
     const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
-    updateStats(currentStore)
+    updateAllData(currentStore)
 
     const handleStoreSync = (e: Event) => {
       const customEvent = e as CustomEvent<string>
       const target = customEvent.detail || localStorage.getItem('localmate_store_id') || 'cafe'
-      updateStats(target)
+      updateAllData(target)
     }
 
     const handleReviewsSync = () => {
       const target = localStorage.getItem('localmate_store_id') || 'cafe'
-      updateStats(target)
+      setStats(getReviewStatsFromStorage(target))
+    }
+
+    const handleSalesSync = () => {
+      const target = localStorage.getItem('localmate_store_id') || 'cafe'
+      setSales(getStoredSales(target))
+    }
+
+    // 🎯 초기화 이벤트 수신 시 기본 매출로 즉각 복귀
+    const handleSalesReset = () => {
+      const target = localStorage.getItem('localmate_store_id') || 'cafe'
+      updateAllData(target)
     }
 
     window.addEventListener('storeChange', handleStoreSync)
     window.addEventListener('reviewsUpdated', handleReviewsSync)
-    window.addEventListener('storage', handleReviewsSync)
+    window.addEventListener('localmate_sales_updated', handleSalesSync)
+    window.addEventListener('localmate_sales_reset', handleSalesReset)
+    window.addEventListener('storage', handleSalesSync)
 
     return () => {
       window.removeEventListener('storeChange', handleStoreSync)
       window.removeEventListener('reviewsUpdated', handleReviewsSync)
-      window.removeEventListener('storage', handleReviewsSync)
+      window.removeEventListener('localmate_sales_updated', handleSalesSync)
+      window.removeEventListener('localmate_sales_reset', handleSalesReset)
+      window.removeEventListener('storage', handleSalesSync)
     }
   }, [])
 
-  // prop이 직접 넘어올 경우 우선 반영
   const displayUnanswered = typeof propUnanswered === 'number' ? propUnanswered : stats.unanswered
-
   const isCafe = storeId === 'cafe'
-  const todaySales = isCafe ? '980,000' : '1,284,000'
-  const monthSales = isCafe ? '15,200,000' : '18,500,000'
   const platformLabel = isCafe ? '배민' : '쿠팡이츠'
 
   return (
@@ -79,7 +111,9 @@ export function KpiCards({ unansweredCount: propUnanswered }: { unansweredCount?
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
         <div className="space-y-1">
           <p className="text-xs font-semibold text-slate-500">오늘 매출</p>
-          <p className="text-2xl font-bold tracking-tight text-slate-900">{todaySales}</p>
+          <p className="text-2xl font-bold tracking-tight text-slate-900">
+            {sales.today.toLocaleString()}원
+          </p>
           <p className="text-xs font-semibold text-emerald-600">↗ 어제 대비 {isCafe ? '+8.5%' : '+12.4%'}</p>
         </div>
         <div className="size-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
@@ -91,7 +125,9 @@ export function KpiCards({ unansweredCount: propUnanswered }: { unansweredCount?
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
         <div className="space-y-1">
           <p className="text-xs font-semibold text-slate-500">이번 달 누적 매출</p>
-          <p className="text-2xl font-bold tracking-tight text-slate-900">{monthSales}</p>
+          <p className="text-2xl font-bold tracking-tight text-slate-900">
+            {sales.month.toLocaleString()}원
+          </p>
           <p className="text-xs font-semibold text-emerald-600">↗ 전월 동기 대비 {isCafe ? '+6.2%' : '+8.1%'}</p>
         </div>
         <div className="size-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
@@ -111,7 +147,7 @@ export function KpiCards({ unansweredCount: propUnanswered }: { unansweredCount?
         </div>
       </div>
 
-      {/* 4. 미답변 리뷰 (실시간 반영) */}
+      {/* 4. 미답변 리뷰 */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
         <div className="space-y-1">
           <p className="text-xs font-semibold text-slate-500">미답변 리뷰</p>

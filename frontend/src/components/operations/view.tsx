@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { Upload, Trash2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { 
   BarChart, 
   Bar, 
@@ -12,28 +11,59 @@ import {
   ResponsiveContainer,
   Cell
 } from 'recharts'
+import { RotateCcw, Activity } from 'lucide-react'
 
-// 인기 메뉴 데이터
-const MENU_DATA = {
+type ChartData = { time: string; sales: number; hour: number }
+type TopMenuItem = { name: string; count: number }
+
+const DEFAULT_HOURLY_DATA = {
   cafe: [
-    { name: '아메리카노', count: 128 },
-    { name: '카페라떼', count: 96 },
-    { name: '초코쿠키', count: 84 },
-    { name: '허니브레드', count: 72 },
-    { name: '에그샌드위치', count: 64 },
+    { time: '10:00', sales: 15000, hour: 10 },
+    { time: '11:00', sales: 45000, hour: 11 },
+    { time: '12:00', sales: 120000, hour: 12 },
+    { time: '13:00', sales: 95000, hour: 13 },
+    { time: '14:00', sales: 50000, hour: 14 },
+    { time: '15:00', sales: 30000, hour: 15 },
+    { time: '16:00', sales: 25000, hour: 16 },
+    { time: '17:00', sales: 40000, hour: 17 },
+    { time: '18:00', sales: 60000, hour: 18 },
+    { time: '19:00', sales: 85000, hour: 19 },
+    { time: '20:00', sales: 55000, hour: 20 },
+    { time: '21:00', sales: 20000, hour: 21 },
   ],
   chicken: [
-    { name: '후라이드 치킨', count: 150 },
-    { name: '양념 치킨', count: 132 },
-    { name: '간장 치킨', count: 110 },
-    { name: '치즈볼', count: 95 },
-    { name: '순살 파닭', count: 88 },
+    { time: '12:00', sales: 30000, hour: 12 },
+    { time: '13:00', sales: 25000, hour: 13 },
+    { time: '14:00', sales: 20000, hour: 14 },
+    { time: '15:00', sales: 25000, hour: 15 },
+    { time: '16:00', sales: 40000, hour: 16 },
+    { time: '17:00', sales: 85000, hour: 17 },
+    { time: '18:00', sales: 150000, hour: 18 },
+    { time: '19:00', sales: 210000, hour: 19 },
+    { time: '20:00', sales: 180000, hour: 20 },
+    { time: '21:00', sales: 130000, hour: 21 },
+    { time: '22:00', sales: 95000, hour: 22 },
+    { time: '23:00', sales: 60000, hour: 23 },
   ]
 }
 
-type ChartData = { time: string; sales: number; hour: number }
+const DEFAULT_TOP_MENUS = {
+  cafe: [
+    { name: '아메리카노 (ICED)', count: 128 },
+    { name: '카페라떼 (ICED)', count: 96 },
+    { name: '버터 크로플 세트', count: 84 },
+    { name: '바닐라빈 라떼', count: 72 },
+    { name: '생딸기 바스크 케이크', count: 64 },
+  ],
+  chicken: [
+    { name: '황금 후라이드 치킨', count: 150 },
+    { name: '매콤달콤 양념 치킨', count: 132 },
+    { name: '단짠 갈릭 간장 치킨', count: 110 },
+    { name: '특제 모짜 치즈볼', count: 95 },
+    { name: '바삭 순살 파닭', count: 88 },
+  ]
+}
 
-// 🎯 초기 마운트 시 깜빡임 방지용 로더 함수
 const getInitialStoreId = (): string => {
   if (typeof window !== 'undefined') {
     return localStorage.getItem('localmate_store_id') || 'cafe'
@@ -41,147 +71,130 @@ const getInitialStoreId = (): string => {
   return 'cafe'
 }
 
-const getInitialChartData = (storeId: string): ChartData[] => {
-  if (typeof window !== 'undefined') {
-    const savedData = localStorage.getItem(`localmate_chart_${storeId}`)
-    if (savedData) {
-      try {
-        return JSON.parse(savedData)
-      } catch (e) {
-        return []
-      }
-    }
+// 🎯 저장된 시간대별 매출 로드 (없으면 기본값 생성 후 저장)
+const loadHourlyData = (storeId: string): ChartData[] => {
+  const isChicken = storeId === 'chicken'
+  const defaults = isChicken ? DEFAULT_HOURLY_DATA.chicken : DEFAULT_HOURLY_DATA.cafe
+  if (typeof window === 'undefined') return defaults
+
+  const saved = localStorage.getItem(`localmate_hourly_sales_${storeId}`)
+  if (saved) {
+    try { 
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+    } catch (e) {}
   }
-  return []
+  const cloned = JSON.parse(JSON.stringify(defaults))
+  localStorage.setItem(`localmate_hourly_sales_${storeId}`, JSON.stringify(cloned))
+  return cloned
+}
+
+// 🎯 저장된 인기 메뉴 TOP 5 로드
+const loadTopMenus = (storeId: string): TopMenuItem[] => {
+  const isChicken = storeId === 'chicken'
+  const defaults = isChicken ? DEFAULT_TOP_MENUS.chicken : DEFAULT_TOP_MENUS.cafe
+  if (typeof window === 'undefined') return defaults
+
+  const saved = localStorage.getItem(`localmate_top_menus_${storeId}`)
+  if (saved) {
+    try { 
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+    } catch (e) {}
+  }
+  const cloned = JSON.parse(JSON.stringify(defaults))
+  localStorage.setItem(`localmate_top_menus_${storeId}`, JSON.stringify(cloned))
+  return cloned
 }
 
 export function OperationsView() {
-  // 1. 초기 렌더링부터 localStorage의 저장된 지점 정보를 즉시 주입 (깜빡임 차단)
   const [selectedStoreId, setSelectedStoreId] = useState<string>(getInitialStoreId)
-  const [chartData, setChartData] = useState<ChartData[]>(() => getInitialChartData(getInitialStoreId()))
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle')
-  const [errorMessage, setErrorMessage] = useState('')
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [chartData, setChartData] = useState<ChartData[]>(() => loadHourlyData(getInitialStoreId()))
+  const [topMenus, setTopMenus] = useState<TopMenuItem[]>(() => loadTopMenus(getInitialStoreId()))
+  const [liveStreamAlert, setLiveStreamAlert] = useState<string | null>(null)
 
-  const loadChartData = (storeId: string) => {
-    const savedData = localStorage.getItem(`localmate_chart_${storeId}`)
-    if (savedData) {
-      try {
-        setChartData(JSON.parse(savedData))
-      } catch (e) {
-        console.error("데이터 파싱 오류", e)
-        setChartData([])
-      }
-    } else {
-      setChartData([])
-    }
-    setUploadStatus('idle')
+  const syncStore = (storeId: string) => {
+    setSelectedStoreId(storeId)
+    setChartData(loadHourlyData(storeId))
+    setTopMenus(loadTopMenus(storeId))
   }
 
   useEffect(() => {
-    const savedStore = localStorage.getItem('localmate_store_id') || 'cafe'
-    setSelectedStoreId(savedStore)
-    loadChartData(savedStore)
+    const cur = localStorage.getItem('localmate_store_id') || 'cafe'
+    syncStore(cur)
 
-    const handleSync = (e: Event) => {
+    const handleStoreSync = (e: Event) => {
       const customEvent = e as CustomEvent<string>
       if (customEvent.detail) {
-        setSelectedStoreId(customEvent.detail)
-        loadChartData(customEvent.detail)
+        syncStore(customEvent.detail)
       }
     }
 
-    const handleStorage = () => {
-      const current = localStorage.getItem('localmate_store_id') || 'cafe'
-      setSelectedStoreId(current)
-      loadChartData(current)
+    // 🎯 실시간 주문 이벤트 수신 시 데이터 갱신
+    const handleSalesUpdated = (e: Event) => {
+      const curStore = localStorage.getItem('localmate_store_id') || 'cafe'
+      setChartData([...loadHourlyData(curStore)])
+      setTopMenus([...loadTopMenus(curStore)])
+
+      const customEvent = e as CustomEvent<any>
+      if (customEvent.detail && customEvent.detail.menuName) {
+        const { menuName, amount } = customEvent.detail
+        setLiveStreamAlert(`⚡ [실시간 POS 연동] '${menuName}' 주문(+${Number(amount).toLocaleString()}원)이 시간대별 차트와 인기 순위에 즉시 누적되었습니다.`)
+        setTimeout(() => setLiveStreamAlert(null), 3500)
+      }
     }
 
-    window.addEventListener('storeChange', handleSync)
-    window.addEventListener('storage', handleStorage)
+    const handleSalesReset = () => {
+      const curStore = localStorage.getItem('localmate_store_id') || 'cafe'
+      syncStore(curStore)
+      setLiveStreamAlert('통계 데이터가 기본값으로 초기화되었습니다.')
+      setTimeout(() => setLiveStreamAlert(null), 2500)
+    }
+
+    window.addEventListener('storeChange', handleStoreSync)
+    window.addEventListener('localmate_sales_updated', handleSalesUpdated)
+    window.addEventListener('localmate_sales_reset', handleSalesReset)
+    window.addEventListener('storage', handleSalesUpdated)
 
     return () => {
-      window.removeEventListener('storeChange', handleSync)
-      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('storeChange', handleStoreSync)
+      window.removeEventListener('localmate_sales_updated', handleSalesUpdated)
+      window.removeEventListener('localmate_sales_reset', handleSalesReset)
+      window.removeEventListener('storage', handleSalesUpdated)
     }
   }, [])
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    if (!file.name.endsWith('.csv')) {
-      setUploadStatus('error')
-      setErrorMessage('CSV 파일만 업로드 가능합니다.')
-      if (fileInputRef.current) fileInputRef.current.value = ''
-      return
-    }
-
-    const reader = new FileReader()
-    
-    reader.onload = (e) => {
-      const text = e.target?.result as string
-      if (!text) return
-
-      try {
-        const lines = text.split('\n').filter(line => line.trim() !== '')
-        if (lines.length < 2) throw new Error('데이터가 부족합니다.')
-        if (!lines[0].includes(',')) throw new Error('올바른 CSV 형식이 아닙니다.')
-
-        const parsedData: ChartData[] = []
-        
-        for (let i = 1; i < lines.length; i++) {
-          const [time, salesStr] = lines[i].split(',')
-          const sales = parseInt(salesStr, 10)
-          
-          if (time && !isNaN(sales)) {
-            const hour = parseInt(time.split(':')[0], 10)
-            parsedData.push({ time: time.trim(), sales, hour })
-          }
-        }
-
-        if (parsedData.length === 0) throw new Error('유효한 데이터 행이 없습니다.')
-
-        setChartData(parsedData)
-        localStorage.setItem(`localmate_chart_${selectedStoreId}`, JSON.stringify(parsedData))
-        
-        setUploadStatus('success')
-        setTimeout(() => setUploadStatus('idle'), 3000)
-      } catch (error: any) {
-        console.error(error)
-        setUploadStatus('error')
-        setErrorMessage(error.message || '파일 처리 중 오류가 발생했습니다.')
-      }
+  const handleResetData = () => {
+    if (confirm('현재 매장의 시간대별 매출 및 판매 통계를 기본값으로 초기화하시겠습니까?')) {
+      const defaultH = selectedStoreId === 'chicken' ? DEFAULT_HOURLY_DATA.chicken : DEFAULT_HOURLY_DATA.cafe
+      const defaultM = selectedStoreId === 'chicken' ? DEFAULT_TOP_MENUS.chicken : DEFAULT_TOP_MENUS.cafe
       
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
+      localStorage.removeItem(`localmate_hourly_sales_${selectedStoreId}`)
+      localStorage.removeItem(`localmate_top_menus_${selectedStoreId}`)
+      localStorage.removeItem(`localmate_today_sales_${selectedStoreId}`)
+      localStorage.removeItem(`localmate_month_sales_${selectedStoreId}`)
 
-    reader.onerror = () => {
-      setUploadStatus('error')
-      setErrorMessage('파일 읽기 오류.')
-    }
-    reader.readAsText(file)
-  }
+      setChartData(JSON.parse(JSON.stringify(defaultH)))
+      setTopMenus(JSON.parse(JSON.stringify(defaultM)))
 
-  const handleClearData = () => {
-    if (confirm(`현재 매장의 데이터를 삭제하시겠습니까?`)) {
-      localStorage.removeItem(`localmate_chart_${selectedStoreId}`)
-      setChartData([])
-      setUploadStatus('idle')
+      window.dispatchEvent(new CustomEvent('localmate_sales_reset', { detail: selectedStoreId }))
+      window.dispatchEvent(new CustomEvent('localmate_sales_updated', { detail: { storeId: selectedStoreId } }))
+
+      setLiveStreamAlert('통계 데이터가 기본값으로 복원되었습니다.')
+      setTimeout(() => setLiveStreamAlert(null), 2500)
     }
   }
 
   const isCafe = selectedStoreId === 'cafe'
-  const currentMenu = isCafe ? MENU_DATA.cafe : MENU_DATA.chicken
   const modeText = isCafe ? '카페 모드' : '치킨 모드'
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-3 border border-slate-200 shadow-lg rounded-lg">
-          <p className="text-sm font-bold text-slate-700">{label}</p>
-          <p className="text-indigo-600 font-medium">
-            매출: {payload[0].value.toLocaleString()}원
+        <div className="bg-white p-3 border border-slate-200 shadow-lg rounded-xl text-xs font-sans">
+          <p className="font-bold text-slate-800">{label}</p>
+          <p className="text-indigo-600 font-semibold mt-1">
+            매출: {Number(payload[0].value).toLocaleString()}원
           </p>
         </div>
       )
@@ -190,172 +203,126 @@ export function OperationsView() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">매장 운영 분석</h1>
-        <p className="text-sm text-slate-500 mt-1">매출 및 판매 추이를 확인하세요.</p>
+    <div className="p-6 max-w-5xl mx-auto space-y-6 pb-28 font-sans">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">매장 운영 분석</h1>
+          <p className="text-sm text-slate-500 mt-1">배달앱 및 POS와 실시간 연동된 오늘의 매출·판매 추이를 확인하세요.</p>
+        </div>
+
+        <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-2xs">
+          <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>POS / 배달앱 실시간 자동 집계 활성화됨</span>
+        </div>
       </div>
 
+      {liveStreamAlert && (
+        <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-xs font-semibold text-indigo-900 flex items-center gap-2 animate-in fade-in">
+          <Activity className="size-4 text-indigo-600 animate-spin" />
+          <span>{liveStreamAlert}</span>
+        </div>
+      )}
+
       {/* 시간대별 매출 추이 영역 */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-        <div className="mb-6 flex justify-between items-start">
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              시간대별 매출 추이
-              {chartData.length > 0 && (
-                <span className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full font-medium">데이터 적용됨</span>
-              )}
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-slate-900">오늘의 시간대별 매출 추이</h2>
+              <span className="bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs px-2 py-0.5 rounded-md font-semibold">
+                실시간 연동 중
+              </span>
+            </div>
             <p className="text-xs text-slate-500 mt-1">
               {isCafe ? '12~14시 점심 피크 강조' : '18~21시 저녁 피크 강조'} ({modeText})
             </p>
           </div>
           
-          <div className="flex flex-col items-end gap-3">
-            {chartData.length > 0 && (
-              <button 
-                onClick={handleClearData}
-                className="text-xs flex items-center gap-1 text-slate-400 hover:text-red-500 transition-colors"
-              >
-                <Trash2 className="size-3" /> 데이터 지우기
-              </button>
-            )}
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={handleResetData}
+              className="text-xs flex items-center gap-1 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <RotateCcw className="size-3.5" /> 통계 리셋
+            </button>
             
-            {/* 범례(Legend) 영역 */}
-            {chartData.length > 0 && (
-              <div className="flex items-center gap-3 text-xs text-slate-500 bg-slate-50 px-3 py-1.5 rounded-md border border-slate-100">
-                <div className="flex items-center gap-1.5">
-                  <span className="size-3 rounded-sm bg-[#4f46e5]"></span>
-                  <span>집중 피크 시간</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="size-3 rounded-sm bg-[#c7d2fe]"></span>
-                  <span>일반 운영 시간</span>
-                </div>
+            <div className="flex items-center gap-3 text-xs text-slate-600 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 font-medium">
+              <div className="flex items-center gap-1.5">
+                <span className="size-2.5 rounded-full bg-[#4f46e5]"></span>
+                <span>집중 피크 시간</span>
               </div>
-            )}
+              <div className="flex items-center gap-1.5">
+                <span className="size-2.5 rounded-full bg-[#c7d2fe]"></span>
+                <span>일반 운영 시간</span>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* 차트 영역 */}
-        {chartData.length > 0 ? (
-          <div className="h-72 w-full mt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                <XAxis 
-                  dataKey="time" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 12, fill: '#64748b' }} 
-                  dy={10} 
-                />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 12, fill: '#64748b' }} 
-                  tickFormatter={(value) => `${value.toLocaleString()}`}
-                />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f1f5f9' }} />
-                <Bar dataKey="sales" radius={[4, 4, 0, 0]}>
-                  {chartData.map((entry, index) => {
-                    const isPeak = isCafe 
-                      ? (entry.hour >= 12 && entry.hour <= 14) 
-                      : (entry.hour >= 18 && entry.hour <= 21)
-                    
-                    return (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={isPeak ? '#4f46e5' : '#c7d2fe'}
-                      />
-                    )
-                  })}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        ) : (
-          <div className="h-48 bg-slate-50 rounded-lg flex flex-col items-center justify-center text-sm text-slate-400 border border-slate-100 border-dashed">
-            <BarChartIcon className="size-8 mb-2 opacity-50" />
-            <p>아래에서 CSV 파일을 업로드하면 차트가 표시됩니다.</p>
-          </div>
-        )}
+        <div className="h-72 w-full pt-4">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis 
+                dataKey="time" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fontSize: 12, fill: '#64748b' }} 
+                dy={10} 
+              />
+              <YAxis 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fontSize: 12, fill: '#64748b' }} 
+                tickFormatter={(value) => `${Number(value).toLocaleString()}`}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc' }} />
+              <Bar dataKey="sales" radius={[6, 6, 0, 0]}>
+                {chartData.map((entry, index) => {
+                  const isPeak = isCafe 
+                    ? (entry.hour >= 12 && entry.hour <= 14) 
+                    : (entry.hour >= 18 && entry.hour <= 21)
+                  
+                  return (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={isPeak ? '#4f46e5' : '#c7d2fe'}
+                    />
+                  )
+                })}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       {/* 인기 메뉴 TOP 5 영역 */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">인기 메뉴 TOP 5</h2>
-            <p className="text-xs text-slate-500">판매량 기준 ({modeText})</p>
+            <h2 className="text-base font-bold text-slate-900">오늘의 인기 메뉴 TOP 5</h2>
+            <p className="text-xs text-slate-500 mt-0.5">실시간 주문 판매량 기준 ({modeText})</p>
           </div>
+          <span className="text-xs font-semibold text-slate-400">자동 순위 갱신</span>
         </div>
+
         <div className="divide-y divide-slate-100">
-          <div className="flex justify-between py-2 text-xs font-medium text-slate-400">
-            <span>메뉴</span>
+          <div className="flex justify-between py-2.5 text-xs font-semibold text-slate-400">
+            <span>메뉴명</span>
             <span>판매량</span>
           </div>
-          {currentMenu.map((item, idx) => (
+          {topMenus.map((item, idx) => (
             <div key={idx} className="flex justify-between py-3 text-sm text-slate-700">
-              <span className="font-medium flex items-center gap-2">
-                <span className="text-xs text-slate-400 font-normal w-3">{idx + 1}</span> 
-                {item.name}
+              <span className="font-medium flex items-center gap-3">
+                <span className="text-xs font-bold text-slate-400 w-4">{idx + 1}</span> 
+                <span className="text-slate-800 font-semibold">{item.name}</span>
               </span>
               <span className="font-bold text-slate-900">{item.count}회</span>
             </div>
           ))}
         </div>
       </div>
-
-      {/* CSV 업로드 영역 */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-        <div className="mb-4">
-          <h2 className="text-lg font-bold text-slate-900">매출 CSV 업로드</h2>
-          <p className="text-xs text-slate-500">
-            '시간,매출' 헤더를 가진 CSV 파일을 업로드하여 현재 매장의 데이터를 업데이트합니다.
-          </p>
-        </div>
-        
-        <input 
-          type="file" 
-          accept=".csv" 
-          ref={fileInputRef} 
-          onChange={handleFileUpload} 
-          className="hidden" 
-        />
-
-        <div 
-          onClick={() => fileInputRef.current?.click()}
-          className="h-32 rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-500 hover:text-indigo-600 hover:border-indigo-500 hover:bg-indigo-50 transition-all cursor-pointer group"
-        >
-          <Upload className="size-6 mb-2 group-hover:-translate-y-1 transition-transform" />
-          <span className="text-sm font-medium">클릭하여 파일 선택 (.csv)</span>
-        </div>
-
-        {uploadStatus === 'success' && (
-          <div className="mt-3 flex items-center gap-2 text-sm text-emerald-600 bg-emerald-50 p-3 rounded-lg border border-emerald-100">
-            <CheckCircle2 className="size-4" />
-            데이터가 성공적으로 적용되었습니다.
-          </div>
-        )}
-        {uploadStatus === 'error' && (
-          <div className="mt-3 flex items-center gap-2 text-sm text-red-600 bg-red-50 p-3 rounded-lg border border-red-100">
-            <AlertCircle className="size-4 shrink-0" />
-            {errorMessage}
-          </div>
-        )}
-      </div>
     </div>
-  )
-}
-
-function BarChartIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" x2="18" y1="20" y2="10" />
-      <line x1="12" x2="12" y1="20" y2="4" />
-      <line x1="6" x2="6" y1="20" y2="14" />
-    </svg>
   )
 }
 

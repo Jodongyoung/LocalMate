@@ -1,133 +1,114 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Pencil, Target } from 'lucide-react'
-import { formatKRW, STORE_DASHBOARD_DATA } from '@/lib/mock-data'
+import { Target, Pencil } from 'lucide-react'
 
-const presets = [20_000_000, 25_000_000, 30_000_000]
+const BASE_TARGETS = {
+  cafe: { target: 20000000, month: 15200000 },
+  chicken: { target: 25000000, month: 18500000 }
+}
 
-// 🎯 첫 렌더링 깜빡임 방지를 위한 초기 지점 데이터 로더
-const getInitialStoreData = () => {
+const getInitialStore = () => {
   if (typeof window !== 'undefined') {
-    const storeId = localStorage.getItem('localmate_store_id') || 'cafe'
-    return storeId === 'cafe' ? STORE_DASHBOARD_DATA.cafe.salesTarget : STORE_DASHBOARD_DATA.chicken.salesTarget
+    return localStorage.getItem('localmate_store_id') || 'cafe'
   }
-  return STORE_DASHBOARD_DATA.cafe.salesTarget
+  return 'cafe'
+}
+
+const getMonthSales = (storeId: string) => {
+  const isCafe = storeId === 'cafe'
+  const base = isCafe ? BASE_TARGETS.cafe : BASE_TARGETS.chicken
+  if (typeof window === 'undefined') return base
+
+  const monthSaved = localStorage.getItem(`localmate_month_sales_${storeId}`)
+  return {
+    target: base.target,
+    month: monthSaved ? Number(monthSaved) : base.month
+  }
 }
 
 export function SalesTargetCard() {
-  // 1. 초기 상태부터 localStorage 지점 정보를 정확히 반영
-  const [storeData, setStoreData] = useState(getInitialStoreData)
-  const [goal, setGoal] = useState(storeData.target)
-  const [editing, setEditing] = useState(false)
+  const [storeId, setStoreId] = useState(getInitialStore)
+  const [salesInfo, setSalesInfo] = useState(() => getMonthSales(getInitialStore()))
 
-  // 2. 매장 변경 이벤트(storeChange 및 storage) 감지하여 데이터 실시간 연동
+  const refreshSales = (currentStore: string) => {
+    setStoreId(currentStore)
+    setSalesInfo(getMonthSales(currentStore))
+  }
+
   useEffect(() => {
-    const updateStore = (storeId: string) => {
-      const targetData = storeId === 'cafe' ? STORE_DASHBOARD_DATA.cafe.salesTarget : STORE_DASHBOARD_DATA.chicken.salesTarget
-      setStoreData(targetData)
-      setGoal(targetData.target)
-    }
+    const cur = localStorage.getItem('localmate_store_id') || 'cafe'
+    refreshSales(cur)
 
-    const savedStore = localStorage.getItem('localmate_store_id') || 'cafe'
-    updateStore(savedStore)
-
-    const handleSync = (e: Event) => {
+    const handleStore = (e: Event) => {
       const customEvent = e as CustomEvent<string>
-      const targetStore = customEvent.detail || localStorage.getItem('localmate_store_id') || 'cafe'
-      updateStore(targetStore)
+      const target = customEvent.detail || localStorage.getItem('localmate_store_id') || 'cafe'
+      refreshSales(target)
     }
 
-    window.addEventListener('storeChange', handleSync)
-    window.addEventListener('storage', handleSync)
-    
+    const handleSales = () => {
+      const curStore = localStorage.getItem('localmate_store_id') || 'cafe'
+      refreshSales(curStore)
+    }
+
+    const handleSalesReset = () => {
+      const curStore = localStorage.getItem('localmate_store_id') || 'cafe'
+      refreshSales(curStore)
+    }
+
+    window.addEventListener('storeChange', handleStore)
+    window.addEventListener('localmate_sales_updated', handleSales)
+    window.addEventListener('localmate_sales_reset', handleSalesReset)
+    window.addEventListener('storage', handleSales)
+
     return () => {
-      window.removeEventListener('storeChange', handleSync)
-      window.removeEventListener('storage', handleSync)
+      window.removeEventListener('storeChange', handleStore)
+      window.removeEventListener('localmate_sales_updated', handleSales)
+      window.removeEventListener('localmate_sales_reset', handleSalesReset)
+      window.removeEventListener('storage', handleSales)
     }
   }, [])
 
-  const current = storeData.current
-  const percent = goal > 0 ? Math.min(100, Math.round((current / goal) * 100)) : 0
-  const remaining = Math.max(0, goal - current)
-  const daysLeft = 29
-  const dailyNeeded = Math.ceil(remaining / daysLeft / 1000) * 1000
+  const currentMonthSales = salesInfo.month
+  const targetSales = salesInfo.target
+  const diff = Math.max(0, targetSales - currentMonthSales)
+  const percentage = Math.min(100, Math.round((currentMonthSales / targetSales) * 100))
 
   return (
-    <div className="rounded-2xl border bg-card p-5 shadow-sm font-sans">
-      <div className="flex items-start justify-between gap-3">
+    <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex flex-col justify-between font-sans">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="size-8 rounded-lg bg-secondary text-secondary-foreground flex items-center justify-center">
-            <Target className="size-4" aria-hidden="true" />
+          <div className="size-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <Target className="size-4" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold">11월 매출 목표</h2>
-            <p className="text-xs text-muted-foreground">목표까지 {formatKRW(remaining)} 남음</p>
+            <h3 className="text-xs font-bold text-slate-800">11월 매출 목표</h3>
+            <p className="text-[11px] text-slate-400">목표까지 {diff.toLocaleString()}원 남음</p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setEditing((e) => !e)}
-          className="flex items-center gap-1 text-xs font-medium text-primary hover:bg-secondary rounded-lg px-2 py-1 transition"
-          aria-expanded={editing}
-        >
-          <Pencil className="size-3" aria-hidden="true" />
-          목표 수정
+        <button type="button" className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1">
+          <Pencil className="size-3" /> 목표 수정
         </button>
       </div>
 
-      {/* 목표 수정 버튼을 눌렀을 때 나타나는 프리셋 바 */}
-      {editing && (
-        <div className="mt-3 flex flex-wrap gap-2 animate-in fade-in duration-200" role="group" aria-label="목표 금액 선택">
-          {presets.map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => {
-                setGoal(p)
-                setEditing(false)
-              }}
-              className={`text-xs rounded-full border px-3 py-1.5 transition ${
-                p === goal ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'
-              }`}
-            >
-              {(p / 10_000).toLocaleString('ko-KR')}만원
-            </button>
-          ))}
+      <div className="my-3">
+        <div className="flex items-baseline justify-between mb-1">
+          <span className="text-xs text-slate-500 font-medium">현재 누적</span>
+          <span className="text-xs text-slate-400 font-medium">목표 {targetSales.toLocaleString()}원</span>
         </div>
-      )}
-
-      <div className="mt-4 flex items-end justify-between gap-4">
-        <div>
-          <p className="text-xs text-muted-foreground">현재 누적</p>
-          <p className="text-xl md:text-2xl font-bold tracking-tight tabular-nums">{formatKRW(current)}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-muted-foreground">목표</p>
-          <p className="text-sm font-semibold tabular-nums">{formatKRW(goal)}</p>
+        <p className="text-2xl font-bold tracking-tight text-slate-900">{currentMonthSales.toLocaleString()}원</p>
+        
+        <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden mt-2">
+          <div 
+            className="bg-indigo-600 h-full rounded-full transition-all duration-500"
+            style={{ width: `${percentage}%` }}
+          />
         </div>
       </div>
 
-      <div className="mt-3 group">
-        <div
-          className="relative h-3 w-full rounded-full bg-muted overflow-hidden"
-          role="progressbar"
-          aria-valuenow={percent}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label="월 매출 목표 달성률"
-        >
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-primary to-chart-4 transition-all duration-700 ease-out"
-            style={{ width: `${percent}%` }}
-          />
-        </div>
-        <div className="mt-2 flex items-center justify-between text-xs">
-          <span className="font-semibold text-primary tabular-nums">{percent}% 달성</span>
-          <span className="text-muted-foreground">
-            하루 평균 <span className="font-medium text-foreground tabular-nums">{formatKRW(dailyNeeded)}</span> 필요
-          </span>
-        </div>
+      <div className="flex items-center justify-between text-xs font-medium">
+        <span className="text-indigo-600 font-bold">{percentage}% 달성</span>
+        <span className="text-slate-400">하루 평균 {Math.round(diff / 25).toLocaleString()}원 필요</span>
       </div>
     </div>
   )

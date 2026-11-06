@@ -27,6 +27,7 @@ export interface MenuItem {
   category: string
   initial: number
   unit: string
+  price: number
   packageDesc?: string
 }
 
@@ -34,11 +35,12 @@ export interface StockItem {
   id: string
   name: string
   category: string
-  isLimited: boolean // 사장님이 직접 지정
+  isLimited: boolean
   initial: number
   current: number
   perOrder: number
   unit: string
+  price: number
   packageDesc?: string
 }
 
@@ -55,58 +57,52 @@ export interface OperationalTask {
   timestamp: string
 }
 
-// 🎯 1. 매장별 전체 메뉴판 마스터 풀
-const STORE_MENU_POOLS: Record<string, MenuItem[]> = {
+export const STORE_MENU_POOLS: Record<string, MenuItem[]> = {
   cafe: [
-    { name: '아메리카노 (ICE)', category: '커피및음료', initial: 80, unit: '잔' },
-    { name: '카페라떼', category: '커피및음료', initial: 50, unit: '잔' },
-    { name: '바닐라빈 라떼', category: '커피및음료', initial: 35, unit: '잔' },
-    { name: '얼그레이 레몬티', category: '커피및음료', initial: 25, unit: '잔' },
-    { name: '디카페인 콜드브루', category: '커피및음료', initial: 30, unit: '잔' },
-    { name: '생딸기 조각케이크', category: '디저트', initial: 15, unit: '조각', packageDesc: '1조각' },
-    { name: '수제 에그타르트', category: '디저트', initial: 24, unit: '세트', packageDesc: '2개입' },
-    { name: '플레인 크로플', category: '디저트', initial: 20, unit: '개', packageDesc: '1개입' },
-    { name: '초코 퍼지 브라우니', category: '디저트', initial: 18, unit: '개', packageDesc: '1개입' },
-    { name: '콜드브루 원액 보틀 (500ml)', category: '원두및MD', initial: 12, unit: '병', packageDesc: '500ml' },
-    { name: '시그니처 블렌드 원두 (200g)', category: '원두및MD', initial: 15, unit: '팩', packageDesc: '200g' }
+    { name: '아메리카노 (ICED)', category: '커피및음료', initial: 100, unit: '잔', price: 4500 },
+    { name: '카페라떼 (ICED)', category: '커피및음료', initial: 60, unit: '잔', price: 5200 },
+    { name: '바닐라빈 라떼', category: '커피및음료', initial: 45, unit: '잔', price: 5800 },
+    { name: '제주 말차 라떼', category: '커피및음료', initial: 35, unit: '잔', price: 6200 },
+    { name: '얼그레이 피치 레몬티', category: '커피및음료', initial: 30, unit: '잔', price: 5500 },
+    { name: '생딸기 바스크 케이크', category: '디저트', initial: 20, unit: '조각', price: 7800, packageDesc: '1조각' },
+    { name: '버터 크로플 세트', category: '디저트', initial: 25, unit: '개', price: 5500, packageDesc: '1개입' },
+    { name: '수제 에그타르트 세트', category: '디저트', initial: 30, unit: '세트', price: 6500, packageDesc: '2개입' },
+    { name: '초코 퍼지 브라우니', category: '디저트', initial: 20, unit: '개', price: 5000, packageDesc: '1개입' },
+    { name: '콜드브루 원액 보틀', category: '원두및MD', initial: 15, unit: '병', price: 14500, packageDesc: '500ml' },
+    { name: '하우스 블렌드 원두', category: '원두및MD', initial: 20, unit: '팩', price: 16500, packageDesc: '200g' }
   ],
   chicken: [
-    { name: '황금 후라이드 치킨', category: '메인메뉴', initial: 45, unit: '마리' },
-    { name: '매콤달콤 양념 치킨', category: '메인메뉴', initial: 35, unit: '마리' },
-    { name: '단짠 간장 골드 치킨', category: '메인메뉴', initial: 30, unit: '마리' },
-    { name: '스모크 고추 바사삭 치킨', category: '메인메뉴', initial: 25, unit: '마리' },
-    { name: '바삭 순살 파닭', category: '메인메뉴', initial: 20, unit: '마리' },
-    { name: '통다리 바베큐 구이', category: '메인메뉴', initial: 15, unit: '세트' },
-    { name: '특제 모짜렐라 치즈볼', category: '사이드메뉴', initial: 25, unit: '세트', packageDesc: '5개입' },
-    { name: '수제 바베큐 윙봉', category: '사이드메뉴', initial: 20, unit: '세트', packageDesc: '6조각' },
-    { name: '케이준 감자튀김', category: '사이드메뉴', initial: 35, unit: '봉지', packageDesc: '1봉(200g)' },
-    { name: '트러플 특제 디핑소스', category: '사이드메뉴', initial: 30, unit: '개', packageDesc: '40g' },
-    { name: '달콤 양념 소스 추가', category: '사이드메뉴', initial: 40, unit: '개', packageDesc: '50g' },
-    { name: '바삭 치즈스틱', category: '사이드메뉴', initial: 20, unit: '세트', packageDesc: '3개입' },
-    { name: '코카콜라 1.25L', category: '음료및주류', initial: 40, unit: '병', packageDesc: '1병' },
-    { name: '코카콜라 500ml', category: '음료및주류', initial: 50, unit: '캔', packageDesc: '1캔' }
+    { name: '황금 후라이드 치킨', category: '메인메뉴', initial: 50, unit: '마리', price: 19000 },
+    { name: '매콤달콤 양념 치킨', category: '메인메뉴', initial: 40, unit: '마리', price: 20500 },
+    { name: '단짠 갈릭 간장 치킨', category: '메인메뉴', initial: 35, unit: '마리', price: 21000 },
+    { name: '스모크 고추 바사삭', category: '메인메뉴', initial: 30, unit: '마리', price: 21500 },
+    { name: '바삭 순살 파닭', category: '메인메뉴', initial: 25, unit: '세트', price: 22000 },
+    { name: '특제 모짜 치즈볼', category: '사이드메뉴', initial: 40, unit: '세트', price: 5500, packageDesc: '5개입' },
+    { name: '수제 바베큐 윙봉', category: '사이드메뉴', initial: 25, unit: '세트', price: 10500, packageDesc: '6조각' },
+    { name: '트러플 감자튀김', category: '사이드메뉴', initial: 30, unit: '봉지', price: 5000, packageDesc: '1봉(250g)' },
+    { name: '치즈닝 떡볶이', category: '사이드메뉴', initial: 20, unit: '그릇', price: 6500, packageDesc: '1그릇' },
+    { name: '콜라 1.25L', category: '음료및주류', initial: 50, unit: '병', price: 3000, packageDesc: '1병' },
+    { name: '생맥주 1000cc', category: '음료및주류', initial: 30, unit: '병', price: 7000, packageDesc: '1병' }
   ]
 }
 
-// 🎯 2. 매장별 기본 트래커 초기 품목 (현실적인 오픈 준비 수량)
 const STORE_DEFAULT_STOCKS: Record<string, StockItem[]> = {
   cafe: [
-    { id: 'cafe-1', name: '아메리카노 (ICE)', category: '커피및음료', isLimited: false, initial: 80, current: 80, perOrder: 1, unit: '잔' },
-    { id: 'cafe-2', name: '카페라떼', category: '커피및음료', isLimited: false, initial: 50, current: 50, perOrder: 1, unit: '잔' },
-    { id: 'cafe-3', name: '생딸기 조각케이크', category: '디저트', isLimited: true, initial: 15, current: 15, perOrder: 1, unit: '조각', packageDesc: '1조각' },
-    { id: 'cafe-4', name: '수제 에그타르트', category: '디저트', isLimited: true, initial: 24, current: 24, perOrder: 1, unit: '세트', packageDesc: '2개입' },
-    { id: 'cafe-5', name: '콜드브루 원액 보틀 (500ml)', category: '원두및MD', isLimited: false, initial: 12, current: 12, perOrder: 1, unit: '병', packageDesc: '500ml' }
+    { id: 'cafe-1', name: '아메리카노 (ICED)', category: '커피및음료', isLimited: false, initial: 100, current: 100, perOrder: 1, unit: '잔', price: 4500 },
+    { id: 'cafe-2', name: '카페라떼 (ICED)', category: '커피및음료', isLimited: false, initial: 60, current: 60, perOrder: 1, unit: '잔', price: 5200 },
+    { id: 'cafe-3', name: '생딸기 바스크 케이크', category: '디저트', isLimited: true, initial: 20, current: 20, perOrder: 1, unit: '조각', price: 7800, packageDesc: '1조각' },
+    { id: 'cafe-4', name: '버터 크로플 세트', category: '디저트', isLimited: true, initial: 25, current: 25, perOrder: 1, unit: '개', price: 5500, packageDesc: '1개입' },
+    { id: 'cafe-5', name: '수제 에그타르트 세트', category: '디저트', isLimited: false, initial: 30, current: 30, perOrder: 1, unit: '세트', price: 6500, packageDesc: '2개입' }
   ],
   chicken: [
-    { id: 'chk-1', name: '황금 후라이드 치킨', category: '메인메뉴', isLimited: false, initial: 45, current: 45, perOrder: 1, unit: '마리' },
-    { id: 'chk-2', name: '매콤달콤 양념 치킨', category: '메인메뉴', isLimited: false, initial: 35, current: 35, perOrder: 1, unit: '마리' },
-    { id: 'chk-3', name: '특제 모짜렐라 치즈볼', category: '사이드메뉴', isLimited: true, initial: 25, current: 25, perOrder: 1, unit: '세트', packageDesc: '5개입' },
-    { id: 'chk-4', name: '수제 바베큐 윙봉', category: '사이드메뉴', isLimited: true, initial: 20, current: 20, perOrder: 1, unit: '세트', packageDesc: '6조각' },
-    { id: 'chk-5', name: '트러플 특제 디핑소스', category: '사이드메뉴', isLimited: false, initial: 30, current: 30, perOrder: 1, unit: '개', packageDesc: '40g' }
+    { id: 'chk-1', name: '황금 후라이드 치킨', category: '메인메뉴', isLimited: false, initial: 50, current: 50, perOrder: 1, unit: '마리', price: 19000 },
+    { id: 'chk-2', name: '매콤달콤 양념 치킨', category: '메인메뉴', isLimited: false, initial: 40, current: 40, perOrder: 1, unit: '마리', price: 20500 },
+    { id: 'chk-3', name: '특제 모짜 치즈볼', category: '사이드메뉴', isLimited: true, initial: 40, current: 40, perOrder: 1, unit: '세트', price: 5500, packageDesc: '5개입' },
+    { id: 'chk-4', name: '수제 바베큐 윙봉', category: '사이드메뉴', isLimited: true, initial: 25, current: 25, perOrder: 1, unit: '세트', price: 10500, packageDesc: '6조각' },
+    { id: 'chk-5', name: '단짠 갈릭 간장 치킨', category: '메인메뉴', isLimited: false, initial: 35, current: 35, perOrder: 1, unit: '마리', price: 21000 }
   ]
 }
 
-// 🎯 3. 매장별 실전 AI 결재 제안 카드
 const STORE_DEFAULT_PROPOSALS: Record<string, OperationalTask[]> = {
   cafe: [
     {
@@ -162,12 +158,26 @@ const STORE_DEFAULT_PROPOSALS: Record<string, OperationalTask[]> = {
   ]
 }
 
-// 🎯 초기 마운트 시 깜빡임 방지용 로더 함수들
 const getInitialStoreId = (): string => {
   if (typeof window !== 'undefined') {
     return localStorage.getItem('localmate_store_id') || 'cafe'
   }
   return 'cafe'
+}
+
+const sanitizeStockItems = (items: any[], fallbackPool: MenuItem[]): StockItem[] => {
+  if (!Array.isArray(items)) return []
+  return items.map(item => {
+    let finalPrice = Number(item.price)
+    if (isNaN(finalPrice) || finalPrice <= 0) {
+      const matched = fallbackPool.find(m => m.name === item.name)
+      finalPrice = matched?.price ?? 15000
+    }
+    return {
+      ...item,
+      price: finalPrice
+    }
+  })
 }
 
 const getInitialMenuPool = (storeId: string): MenuItem[] => {
@@ -176,8 +186,9 @@ const getInitialMenuPool = (storeId: string): MenuItem[] => {
   if (typeof window !== 'undefined') {
     const savedPool = localStorage.getItem(`localmate_menupool_v5_${storeId}`)
     if (savedPool) {
-      try {
-        return JSON.parse(savedPool)
+      try { 
+        const parsed = JSON.parse(savedPool) as MenuItem[]
+        return parsed.map(m => ({ ...m, price: Number(m.price) || 15000 }))
       } catch (e) {}
     }
   }
@@ -187,18 +198,15 @@ const getInitialMenuPool = (storeId: string): MenuItem[] => {
 const getInitialStockItems = (storeId: string): StockItem[] => {
   const isCafe = storeId === 'cafe'
   const defaultStock = isCafe ? STORE_DEFAULT_STOCKS.cafe : STORE_DEFAULT_STOCKS.chicken
+  const defaultPool = isCafe ? STORE_MENU_POOLS.cafe : STORE_MENU_POOLS.chicken
   if (typeof window !== 'undefined') {
     const savedStock = localStorage.getItem(`localmate_stock_v5_${storeId}`)
     if (savedStock) {
       try {
-        const parsed = JSON.parse(savedStock) as StockItem[]
-        if (isCafe && parsed.some(p => p.name.includes('치킨'))) {
-          return defaultStock
-        } else if (!isCafe && parsed.some(p => p.name.includes('아메리카노') || p.name.includes('케이크'))) {
-          return defaultStock
-        } else {
-          return parsed
-        }
+        const parsed = JSON.parse(savedStock)
+        if (isCafe && parsed.some((p: any) => p.name?.includes('치킨'))) return defaultStock
+        if (!isCafe && parsed.some((p: any) => p.name?.includes('아메리카노') || p.name?.includes('케이크'))) return defaultStock
+        return sanitizeStockItems(parsed, defaultPool)
       } catch (e) {}
     }
   }
@@ -211,16 +219,13 @@ const getInitialProposals = (storeId: string): OperationalTask[] => {
   if (typeof window !== 'undefined') {
     const savedProposals = localStorage.getItem(`localmate_proposals_v5_${storeId}`)
     if (savedProposals) {
-      try {
-        return JSON.parse(savedProposals)
-      } catch (e) {}
+      try { return JSON.parse(savedProposals) } catch (e) {}
     }
   }
   return defaultProposals
 }
 
 export function TasksView() {
-  // 1. 초기 렌더링부터 localStorage의 저장된 지점 정보를 즉시 주입 (깜빡임 차단)
   const [selectedStoreId, setSelectedStoreId] = useState<string>(getInitialStoreId)
   const [menuPool, setMenuPool] = useState<MenuItem[]>(() => getInitialMenuPool(getInitialStoreId()))
   const [stockItems, setStockItems] = useState<StockItem[]>(() => getInitialStockItems(getInitialStoreId()))
@@ -229,7 +234,6 @@ export function TasksView() {
   const [editList, setEditList] = useState<StockItem[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // 매장별 독립 데이터 로드 함수
   const loadStoreData = (storeId: string) => {
     setSelectedStoreId(storeId)
     const isCafe = storeId === 'cafe'
@@ -237,50 +241,16 @@ export function TasksView() {
     const defaultStock = isCafe ? STORE_DEFAULT_STOCKS.cafe : STORE_DEFAULT_STOCKS.chicken
     const defaultProposals = isCafe ? STORE_DEFAULT_PROPOSALS.cafe : STORE_DEFAULT_PROPOSALS.chicken
 
-    // 메뉴 풀 로드
     const savedPool = localStorage.getItem(`localmate_menupool_v5_${storeId}`)
-    if (savedPool) {
-      try {
-        setMenuPool(JSON.parse(savedPool))
-      } catch (e) {
-        setMenuPool(defaultPool)
-      }
-    } else {
-      setMenuPool(defaultPool)
-    }
+    const loadedPool: MenuItem[] = savedPool ? JSON.parse(savedPool) : defaultPool
+    setMenuPool(loadedPool.map(m => ({ ...m, price: Number(m.price) || 15000 })))
 
-    // 트래커 품목 로드
     const savedStock = localStorage.getItem(`localmate_stock_v5_${storeId}`)
-    if (savedStock) {
-      try {
-        const parsed = JSON.parse(savedStock) as StockItem[]
-        if (isCafe && parsed.some(p => p.name.includes('치킨'))) {
-          setStockItems(defaultStock)
-          localStorage.setItem(`localmate_stock_v5_${storeId}`, JSON.stringify(defaultStock))
-        } else if (!isCafe && parsed.some(p => p.name.includes('아메리카노') || p.name.includes('케이크'))) {
-          setStockItems(defaultStock)
-          localStorage.setItem(`localmate_stock_v5_${storeId}`, JSON.stringify(defaultStock))
-        } else {
-          setStockItems(parsed)
-        }
-      } catch (e) {
-        setStockItems(defaultStock)
-      }
-    } else {
-      setStockItems(defaultStock)
-    }
+    const loadedStock: any[] = savedStock ? JSON.parse(savedStock) : defaultStock
+    setStockItems(sanitizeStockItems(loadedStock, loadedPool))
 
-    // 결재 제안 카드 로드
     const savedProposals = localStorage.getItem(`localmate_proposals_v5_${storeId}`)
-    if (savedProposals) {
-      try {
-        setProposals(JSON.parse(savedProposals))
-      } catch (e) {
-        setProposals(defaultProposals)
-      }
-    } else {
-      setProposals(defaultProposals)
-    }
+    setProposals(savedProposals ? JSON.parse(savedProposals) : defaultProposals)
   }
 
   useEffect(() => {
@@ -295,21 +265,14 @@ export function TasksView() {
       }
     }
 
-    const handleStorage = () => {
-      const current = localStorage.getItem('localmate_store_id') || 'cafe'
-      loadStoreData(current)
-      setIsEditingStock(false)
-    }
-
     window.addEventListener('storeChange', handleSync)
-    window.addEventListener('storage', handleStorage)
+    window.addEventListener('storage', handleSync)
     return () => {
       window.removeEventListener('storeChange', handleSync)
-      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('storage', handleSync)
     }
   }, [])
 
-  // 2. localStorage 저장 및 사이드바 뱃지 동기화
   const syncAndSave = (newProposals: OperationalTask[], newStock?: StockItem[], newPool?: MenuItem[]) => {
     setProposals(newProposals)
     localStorage.setItem(`localmate_proposals_v5_${selectedStoreId}`, JSON.stringify(newProposals))
@@ -329,7 +292,7 @@ export function TasksView() {
     window.dispatchEvent(new CustomEvent('pendingTasksUpdated', { detail: pendingCount }))
   }
 
-  // 3. 주문 유입 시뮬레이션
+  // 🎯 판매 출고 핸들러 (매출/전산표는 건드리지 않고 오직 재고 차감 및 AI 대응 시뮬레이션만 동작)
   const handleOrderDeduct = (item: StockItem) => {
     if (item.current <= 0) return
 
@@ -384,13 +347,15 @@ export function TasksView() {
     syncAndSave(updatedProposals, updatedStock)
   }
 
-  // 4. 수량 및 메뉴 직접 설정 모드 열기
   const handleOpenEdit = () => {
-    setEditList(JSON.parse(JSON.stringify(stockItems)))
+    const cloned = stockItems.map(item => ({
+      ...item,
+      price: Number(item.price) || 15000
+    }))
+    setEditList(cloned)
     setIsEditingStock(true)
   }
 
-  // 5. 항목 추가 (최대 5개)
   const handleAddItem = () => {
     if (editList.length >= 5) {
       alert('관리 메뉴는 최대 5개까지 동시 등록 가능합니다.')
@@ -409,13 +374,13 @@ export function TasksView() {
       current: available.initial,
       perOrder: 1,
       unit: available.unit,
+      price: Number(available.price) || 15000,
       packageDesc: available.packageDesc
     }
 
     setEditList([...editList, newItem])
   }
 
-  // 6. 항목 삭제
   const handleRemoveItem = (id: string) => {
     if (editList.length <= 1) {
       alert('최소 1개 이상의 메뉴가 유지되어야 합니다.')
@@ -424,7 +389,6 @@ export function TasksView() {
     setEditList(editList.filter(item => item.id !== id))
   }
 
-  // 7. 편집 필드 변경
   const handleEditChange = (id: string, field: keyof StockItem, value: any) => {
     setEditList(prev => prev.map(item => {
       if (item.id === id) {
@@ -438,6 +402,7 @@ export function TasksView() {
               initial: matched.initial,
               current: matched.initial,
               unit: matched.unit,
+              price: Number(matched.price) || 15000,
               packageDesc: matched.packageDesc
             }
           }
@@ -448,19 +413,18 @@ export function TasksView() {
     }))
   }
 
-  // 8. 설정 저장 및 적용
   const handleSaveEdit = () => {
     const cleaned = editList.map(item => ({
       ...item,
       initial: Math.max(1, Number(item.initial) || 1),
       current: Math.max(0, Number(item.current) !== undefined ? Number(item.current) : Number(item.initial) || 1),
-      perOrder: Math.max(1, Number(item.perOrder) || 1)
+      perOrder: Math.max(1, Number(item.perOrder) || 1),
+      price: Math.max(1000, Number(item.price) || 15000)
     }))
     setIsEditingStock(false)
     syncAndSave(proposals, cleaned)
   }
 
-  // 9. 메뉴판 CSV 파일 업로드 파싱 핸들러
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -482,16 +446,17 @@ export function TasksView() {
           const name = cols[0]
           const category = cols[1] || '메뉴'
           const initial = Number(cols[2]) || 30
-          const packageDesc = cols[3] && cols[3] !== '-' ? cols[3] : undefined
+          const price = cols[3] && !isNaN(Number(cols[3])) ? Number(cols[3]) : 15000
+          const packageDesc = cols[4] && cols[4] !== '-' ? cols[4] : undefined
 
           let unit = '개'
           if (category.includes('커피') || category.includes('음료')) unit = '잔'
           else if (category.includes('메인')) unit = '마리'
           else if (name.includes('케이크')) unit = '조각'
-          else if (name.includes('보틀') || name.includes('콜라')) unit = '병'
-          else if (packageDesc?.includes('입') || packageDesc?.includes('조각') || packageDesc?.includes('세트')) unit = '세트'
+          else if (name.includes('보틀') || name.includes('콜라') || name.includes('맥주')) unit = '병'
+          else if (packageDesc?.includes('세트') || packageDesc?.includes('입') || packageDesc?.includes('조각')) unit = '세트'
 
-          parsedPool.push({ name, category, initial, unit, packageDesc })
+          parsedPool.push({ name, category, initial, unit, price, packageDesc })
 
           if (parsedInitialCards.length < 5) {
             parsedInitialCards.push({
@@ -503,6 +468,7 @@ export function TasksView() {
               current: initial,
               perOrder: 1,
               unit,
+              price,
               packageDesc
             })
           }
@@ -512,18 +478,18 @@ export function TasksView() {
       if (parsedInitialCards.length > 0) {
         setIsEditingStock(false)
         syncAndSave(proposals, parsedInitialCards, parsedPool)
-        alert(`메뉴판 파일에서 ${parsedPool.length}개 메뉴를 성공적으로 읽었습니다.\n상위 ${parsedInitialCards.length}개 메뉴가 실시간 트래커에 준비 수량으로 즉시 반영되었습니다.`)
+        alert(`메뉴판 파일에서 ${parsedPool.length}개 메뉴(가격 정보 포함)를 성공적으로 학습했습니다.\n상위 ${parsedInitialCards.length}개 메뉴가 실시간 트래커에 즉각 반영되었습니다.`)
       } else {
-        alert('올바른 형식의 메뉴판 파일(CSV)을 읽지 못했습니다.\n형식: 메뉴명, 카테고리, 준비수량, 기본구성개수')
+        alert('올바른 형식의 메뉴판 파일(CSV)을 읽지 못했습니다.\n형식: 메뉴명, 카테고리, 준비수량, 가격(원), 기본구성')
       }
     }
     reader.readAsText(file, 'utf-8')
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  // 10. 시뮬레이션 초기화
+  // 🎯 단독 초기화: 매출/전산표는 보존하고 오직 이 화면의 재고 수량과 결재 카드만 기본값으로 리셋
   const handleResetSimulation = () => {
-    if (confirm('현재 매장의 메뉴 수량과 결재 제안을 기본 상태로 리셋하시겠습니까?')) {
+    if (confirm('현재 매장의 메뉴 준비 수량과 결재 제안 카드만 기본값으로 초기화하시겠습니까?\n(누적된 매출과 전산표 통계는 유지됩니다)')) {
       const isCafe = selectedStoreId === 'cafe'
       const defaultStock = isCafe ? STORE_DEFAULT_STOCKS.cafe : STORE_DEFAULT_STOCKS.chicken
       const defaultProposals = isCafe ? STORE_DEFAULT_PROPOSALS.cafe : STORE_DEFAULT_PROPOSALS.chicken
@@ -534,7 +500,6 @@ export function TasksView() {
     }
   }
 
-  // 승인/보류 핸들러
   const handleApprove = (id: string) => {
     const updated = proposals.map(p => p.id === id ? { ...p, status: 'approved' as const } : p)
     syncAndSave(updated)
@@ -553,7 +518,6 @@ export function TasksView() {
   return (
     <div className="min-h-screen bg-slate-50/60 pb-28 font-sans">
       <main className="mx-auto max-w-6xl px-4 md:px-6 py-6 space-y-6">
-        {/* 상단 헤더 */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-5">
           <div>
             <div className="flex items-center gap-2">
@@ -585,7 +549,6 @@ export function TasksView() {
           </div>
         </div>
 
-        {/* 0개 완전 소진 시 상단 안내 배너 */}
         {isAllStockZero && (
           <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4 flex items-center justify-between gap-3 animate-in fade-in">
             <div className="flex items-center gap-2.5">
@@ -605,7 +568,6 @@ export function TasksView() {
           </div>
         )}
 
-        {/* 1. 메뉴별 실시간 재고 & 품절 방어 트래커 */}
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -671,7 +633,6 @@ export function TasksView() {
             </div>
           </div>
 
-          {/* 카드 목록 */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
             {(isEditingStock ? editList : stockItems).map((item) => {
               const percentage = item.initial > 0 ? Math.round((item.current / item.initial) * 100) : 0
@@ -687,6 +648,8 @@ export function TasksView() {
                 : isSide
                   ? { label: selectedStoreId === 'cafe' ? '디저트' : '사이드', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
                   : { label: selectedStoreId === 'cafe' ? '원두/MD' : '음료', color: 'bg-slate-100 text-slate-700 border-slate-200' }
+
+              const displayPrice = Number(item.price) || 15000
 
               return (
                 <div 
@@ -736,11 +699,14 @@ export function TasksView() {
                       >
                         {availableCategories.map((cat) => (
                           <optgroup key={cat} label={`📂 ${cat}`}>
-                            {menuPool.filter(m => m.category === cat).map((m) => (
-                              <option key={m.name} value={m.name}>
-                                {m.name} {m.packageDesc ? `(${m.packageDesc})` : ''}
-                              </option>
-                            ))}
+                            {menuPool.filter(m => m.category === cat).map((m) => {
+                              const optionPrice = Number(m.price) || 15000
+                              return (
+                                <option key={m.name} value={m.name}>
+                                  {m.name} ({optionPrice.toLocaleString()}원)
+                                </option>
+                              )
+                            })}
                           </optgroup>
                         ))}
                       </select>
@@ -765,12 +731,12 @@ export function TasksView() {
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] text-slate-500 block mb-0.5">1회 주문당</label>
+                          <label className="text-[10px] text-slate-500 block mb-0.5">단가 (원)</label>
                           <input 
                             type="number"
-                            value={item.perOrder}
-                            onChange={(e) => handleEditChange(item.id, 'perOrder', Number(e.target.value))}
-                            className="w-full px-2 py-1 border rounded text-xs text-center font-bold text-rose-600"
+                            value={displayPrice}
+                            onChange={(e) => handleEditChange(item.id, 'price', Number(e.target.value))}
+                            className="w-full px-2 py-1 border rounded text-xs text-center font-bold text-emerald-600"
                           />
                         </div>
                       </div>
@@ -793,8 +759,7 @@ export function TasksView() {
                             </p>
                           </div>
                           <p className="text-[11px] text-slate-500 mt-1">
-                            준비 {item.initial}{item.unit}
-                            {item.packageDesc ? ` • 기본구성: ${item.packageDesc}` : ''}
+                            단가 {displayPrice.toLocaleString()}원 • 준비 {item.initial}{item.unit}
                           </p>
                         </div>
 
@@ -824,6 +789,7 @@ export function TasksView() {
                         </div>
                       </div>
 
+                      {/* 🎯 버튼 문구 변경: 금액 표현 제거 및 실제 출고 안내로 개편 */}
                       <button
                         type="button"
                         onClick={() => handleOrderDeduct(item)}
@@ -834,7 +800,7 @@ export function TasksView() {
                             : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200'
                         }`}
                       >
-                        {isZero ? '재고 소진 완료' : `⚡ 주문 유입 시뮬레이션 (-${item.perOrder}${item.unit})`}
+                        {isZero ? '재고 소진 완료' : `⚡ 판매 출고 (-${item.perOrder}${item.unit})`}
                       </button>
                     </div>
                   )}
@@ -844,7 +810,6 @@ export function TasksView() {
           </div>
         </div>
 
-        {/* 2. 결재 대기 중인 운영 제어 카드 리스트 */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
@@ -919,7 +884,6 @@ export function TasksView() {
           )}
         </div>
 
-        {/* 3. 최근 제어 및 실행 이력 */}
         {historyList.length > 0 && (
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
             <h2 className="text-sm font-bold text-slate-900">최근 실행 및 승인 이력</h2>

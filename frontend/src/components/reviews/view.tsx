@@ -9,9 +9,10 @@ import {
   RotateCcw, 
   PlusCircle, 
   ShieldCheck, 
-  Edit3,
-  Sparkles,
-  MessageSquare
+  Edit3, 
+  Sparkles, 
+  MessageSquare,
+  ShoppingBag
 } from 'lucide-react'
 import { ReviewCard } from '@/components/reviews/card'
 import { type Review } from '@/lib/mock-data'
@@ -46,7 +47,7 @@ const DEFAULT_CHICKEN_REVIEWS: any[] = [
     customerId: '치킨러버92',
     rating: 5,
     date: '오늘 오후 7:42',
-    menu: '후라이드 치킨 1마리 + 치즈볼',
+    menu: '황금 후라이드 치킨 + 특제 모짜 치즈볼',
     text: '리뷰이벤트로 치즈볼 받았는데 너무 맛있어요! 튀김옷이 진짜 바삭하고 속은 촉촉해서 아이들이 순식간에 다 먹었어요. 수성구에서 제일 맛있는 집인 듯합니다.',
     tags: ['긍정', '추천', '바삭함'],
     photo: CHICKEN_PHOTOS[0],
@@ -60,7 +61,7 @@ const DEFAULT_CHICKEN_REVIEWS: any[] = [
     customerId: '수성못직장인',
     rating: 2,
     date: '오늘 오후 6:15',
-    menu: '양념 치킨 1마리',
+    menu: '매콤달콤 양념 치킨',
     text: '맛은 괜찮은데 예상 시간보다 40분이나 늦게 왔어요. 비가 와서 그런 건 이해하지만 중간에 안내라도 해주셨으면 좋겠습니다. 치킨도 좀 식어서 왔네요.',
     tags: ['대기지연', '식음'],
     photo: CHICKEN_PHOTOS[1],
@@ -73,7 +74,7 @@ const DEFAULT_CHICKEN_REVIEWS: any[] = [
     customerId: '반반무많이',
     rating: 3,
     date: '어제 오후 9:03',
-    menu: '반반 치킨 + 치즈볼 + 콜라 1.25L',
+    menu: '단짠 갈릭 간장 치킨 + 콜라 1.25L',
     text: '치킨은 맛있었는데 주문한 콜라가 안 왔어요. 요청사항에 무 많이 달라고 적었는데 그것도 반영이 안 됐네요. 포장 확인 한 번만 더 부탁드려요.',
     tags: ['일반', '포장누락', '개선요청'],
     photo: CHICKEN_PHOTOS[2],
@@ -86,7 +87,7 @@ const DEFAULT_CHICKEN_REVIEWS: any[] = [
     customerId: '치맥조아',
     rating: 5,
     date: '어제 오후 6:40',
-    menu: '순살 간장치킨 + 생맥주 1000cc',
+    menu: '바삭 순살 파닭 + 생맥주 1000cc',
     text: '양념이 짜지 않고 딱 적당하게 달달해서 맥주 안주로 최고예요. 튀김 상태도 훌륭합니다.',
     tags: ['긍정', '추천'],
     orderCount: 1,
@@ -97,7 +98,7 @@ const DEFAULT_CHICKEN_REVIEWS: any[] = [
     customerId: '야식매니아',
     rating: 3,
     date: '2일 전',
-    menu: '순살 후라이드 치킨',
+    menu: '황금 후라이드 치킨',
     text: '무난하게 잘 먹었습니다. 그냥 평범한 치킨 맛이에요. 배달 속도는 보통이었습니다.',
     tags: ['일반', '무난함'],
     orderCount: 1,
@@ -108,7 +109,7 @@ const DEFAULT_CHICKEN_REVIEWS: any[] = [
     customerId: '황금닭다리',
     rating: 5,
     date: '3일 전',
-    menu: '황금 닭다리 콤보 세트',
+    menu: '스모크 고추 바사삭',
     text: '닭다리가 정말 통통하고 육즙이 팡팡 터집니다. 튀김 기름도 아주 깨끗한 게 느껴져요!',
     tags: ['긍정', '육즙가득'],
     photo: CHICKEN_PHOTOS[3],
@@ -124,7 +125,7 @@ const DEFAULT_CAFE_REVIEWS: any[] = [
     customerId: '커피마스터',
     rating: 5,
     date: '오늘 오후 1:30',
-    menu: '아이스 아메리카노 2잔 + 크로플 세트',
+    menu: '아메리카노 (ICED) 2잔 + 버터 크로플 세트',
     text: '크로플 겉바속촉 제대로네요! 아메리카노 산미도 딱 제가 좋아하는 스타일이에요. 포장도 안 새고 깔끔하게 잘 왔습니다.',
     tags: ['긍정', '추천', '디저트맛집'],
     photo: CAFE_PHOTOS[0],
@@ -138,7 +139,7 @@ const DEFAULT_CAFE_REVIEWS: any[] = [
     customerId: '동성로피플',
     rating: 2,
     date: '오늘 오전 11:20',
-    menu: '따뜻한 카페라떼',
+    menu: '카페라떼 (ICED)',
     text: '라떼 시켰는데 다 식어서 왔어요... 그리고 컵 뚜껑이 살짝 열려있어서 쟁반에 조금 샜네요. 배달 기사님 문제인지 매장 포장 문제인지 모르겠지만 실망입니다.',
     tags: ['대기지연', '식음', '포장불만'],
     photo: CAFE_PHOTOS[1],
@@ -151,8 +152,8 @@ const DEFAULT_CAFE_REVIEWS: any[] = [
     customerId: '베이커리덕후',
     rating: 3,
     date: '어제 오후 3:15',
-    menu: '아메리카노 ICED, 소금빵 2개',
-    text: '커피 맛은 괜찮았는데 주문한 소금빵 하나가 누락되어 왔어요. 다음엔 포장할 때 체크 부탁드립니다.',
+    menu: '아메리카노 (ICED), 수제 에그타르트 세트',
+    text: '커피 맛은 괜찮았는데 주문한 에그타르트 하나가 누락되어 왔어요. 다음엔 포장할 때 체크 부탁드립니다.',
     tags: ['일반', '포장누락', '개선요청'],
     photo: CAFE_PHOTOS[2],
     imageUrl: CAFE_PHOTOS[2],
@@ -164,7 +165,7 @@ const DEFAULT_CAFE_REVIEWS: any[] = [
     customerId: '라떼사랑',
     rating: 5,
     date: '어제 오전 9:40',
-    menu: '카페라떼 ICED',
+    menu: '바닐라빈 라떼',
     text: '사장님 항상 너무 친절하시고 포장도 꼼꼼하게 해주셔서 기분 좋게 마십니다.',
     tags: ['긍정', '친절응대'],
     orderCount: 4,
@@ -175,7 +176,7 @@ const DEFAULT_CAFE_REVIEWS: any[] = [
     customerId: '점심시간휴식',
     rating: 3,
     date: '2일 전',
-    menu: '아메리카노 HOT',
+    menu: '아메리카노 (ICED)',
     text: '점심 먹고 시켰는데 커피 맛 무난해요. 잘 마셨습니다.',
     tags: ['일반', '무난함'],
     orderCount: 1,
@@ -186,8 +187,8 @@ const DEFAULT_CAFE_REVIEWS: any[] = [
     customerId: '달콤한하루',
     rating: 5,
     date: '3일 전',
-    menu: '딸기 라떼, 크로플',
-    text: '딸기청 듬뿍 들어가서 달달하니 맛있네요! 크로플이랑 조합이 예술입니다.',
+    menu: '제주 말차 라떼, 생딸기 바스크 케이크',
+    text: '말차 라떼 쌉싸름 달달하니 맛있네요! 바스크 케이크랑 조합이 예술입니다.',
     tags: ['긍정', '추천', '달콤함'],
     photo: CAFE_PHOTOS[3],
     imageUrl: CAFE_PHOTOS[3],
@@ -196,50 +197,80 @@ const DEFAULT_CAFE_REVIEWS: any[] = [
   }
 ]
 
-const MOCK_CUSTOMERS = [
-  '수성구미식가', '동성로단골러', '치킨러버24', '퇴근길소확행', '치맥조아', 
-  '라떼파', '배고픈다람쥐', '대구맛집헌터', '바삭킹', '커피향기'
-]
+// 🎯 가상 주문 시 인입될 다양한 메뉴 풀 (가격과 정확히 매칭)
+const DIVERSE_MENU_ORDERS = {
+  chicken: [
+    { name: '황금 후라이드 치킨', price: 19000 },
+    { name: '매콤달콤 양념 치킨', price: 20500 },
+    { name: '단짠 갈릭 간장 치킨', price: 21000 },
+    { name: '스모크 고추 바사삭', price: 21500 },
+    { name: '바삭 순살 파닭', price: 22000 },
+    { name: '특제 모짜 치즈볼', price: 5500 },
+    { name: '수제 바베큐 윙봉', price: 10500 },
+    { name: '트러플 감자튀김', price: 5000 },
+    { name: '치즈닝 떡볶이', price: 6500 },
+    { name: '생맥주 1000cc', price: 7000 }
+  ],
+  cafe: [
+    { name: '아메리카노 (ICED)', price: 4500 },
+    { name: '카페라떼 (ICED)', price: 5200 },
+    { name: '바닐라빈 라떼', price: 5800 },
+    { name: '제주 말차 라떼', price: 6200 },
+    { name: '얼그레이 피치 레몬티', price: 5500 },
+    { name: '생딸기 바스크 케이크', price: 7800 },
+    { name: '버터 크로플 세트', price: 5500 },
+    { name: '수제 에그타르트 세트', price: 6500 },
+    { name: '초코 퍼지 브라우니', price: 5000 },
+    { name: '콜드브루 원액 보틀', price: 14500 }
+  ]
+}
 
-// 🎯 가상 리뷰 생성 시 긍정 / 일반 / 불만 각각의 템플릿 풀
+// 🎯 가상 리뷰 생성 시 사용되는 템플릿 풀
 const MOCK_REVIEW_TEMPLATES = {
   positive: {
     cafe: [
-      { text: '크로플 겉바속촉 제대로네요! 라떼 원두 향도 깊고 부드러워서 기분 좋게 충전 완료했습니다 :)', menu: '시그니처 바닐라빈 라떼, 크로플', tags: ['긍정', '추천', '디저트맛집'] },
-      { text: '원두 향이 정말 향긋하고 산미 밸런스가 최고예요. 매일 아침 여기서 시킵니다!', menu: '아메리카노 (ICED) 2잔', tags: ['긍정', '커피맛집', '단골'] },
-      { text: '디저트 포장도 너무 깔끔하고 음료 안 흘리게 꼼꼼히 보내주셔서 감동했습니다.', menu: '생딸기 조각케이크 + 콜드브루', tags: ['긍정', '포장꼼꼼', '추천'] }
+      { text: '크로플 겉바속촉 제대로네요! 바닐라빈 라떼 원두 향도 깊고 부드러워서 기분 좋게 충전했습니다 :)', menu: '바닐라빈 라떼 + 버터 크로플 세트', tags: ['긍정', '추천', '디저트맛집'], photoIdx: 0 },
+      { text: '원두 향이 정말 향긋하고 산미 밸런스가 최고예요. 매일 아침 여기서 시킵니다!', menu: '아메리카노 (ICED) 2잔', tags: ['긍정', '커피맛집', '단골'], photoIdx: 2 },
+      { text: '바스크 케이크 진짜 꾸덕하고 부드러워요! 음료 안 흘리게 꼼꼼히 보내주셔서 감동했습니다.', menu: '생딸기 바스크 케이크 + 아메리카노 (ICED)', tags: ['긍정', '포장꼼꼼', '추천'], photoIdx: 3 },
+      { text: '제주 말차 라떼 진하고 너무 맛있어요. 에그타르트랑 조합이 끝내줍니다.', menu: '제주 말차 라떼 + 수제 에그타르트 세트', tags: ['긍정', '디저트맛집', '추천'], photoIdx: 1 }
     ],
     chicken: [
-      { text: '오늘따라 튀김옷이 진짜 바삭하고 속은 촉촉해서 아이들이 순식간에 다 먹었어요!', menu: '황금 후라이드 치킨 + 치즈볼', tags: ['긍정', '추천', '바삭함'] },
-      { text: '양념 치킨 소스가 과하게 달지 않고 감칠맛 폭발이네요. 맥주 안주로 최고입니다.', menu: '매콤달콤 양념 치킨', tags: ['긍정', '맛있음', '치맥'] },
-      { text: '닭다리 살이 정말 실하고 부드러워요. 치즈볼도 치즈 꽉 차서 대만족입니다!', menu: '반반 치킨 + 특제 모짜렐라 치즈볼', tags: ['긍정', '육즙가득', '사이드최고'] }
+      { text: '오늘따라 튀김옷이 진짜 바삭하고 속은 촉촉해서 아이들이 순식간에 다 먹었어요!', menu: '황금 후라이드 치킨 + 특제 모짜 치즈볼', tags: ['긍정', '추천', '바삭함'], photoIdx: 0 },
+      { text: '양념 치킨 소스가 과하게 달지 않고 감칠맛 폭발이네요. 맥주 안주로 최고입니다.', menu: '매콤달콤 양념 치킨', tags: ['긍정', '맛있음', '치맥'], photoIdx: 1 },
+      { text: '갈릭 간장 소스 풍미가 대박이에요. 치즈볼도 치즈 꽉 차서 대만족입니다!', menu: '단짠 갈릭 간장 치킨 + 특제 모짜 치즈볼', tags: ['긍정', '육즙가득', '사이드최고'], photoIdx: 2 },
+      { text: '고추 바사삭 매콤알싸해서 질리지 않고 끝까지 맛있게 먹었네요. 윙봉도 최고입니다!', menu: '스모크 고추 바사삭 + 수제 바베큐 윙봉', tags: ['긍정', '추천', '매콤함'], photoIdx: 3 }
     ]
   },
   neutral: {
     cafe: [
-      { text: '커피 맛은 무난하고 괜찮은데 얼음이 조금 빨리 녹은 것 같아요. 그래도 잘 마셨습니다.', menu: '아이스 카페라떼', tags: ['일반', '무난함'] },
-      { text: '배달 시간은 보통이었고 빵도 무난했어요. 가성비는 평범한 편입니다.', menu: '플레인 크로플 + 아메리카노', tags: ['일반', '가성비보통'] },
-      { text: '음료 맛은 깔끔합니다. 다만 빨대가 하나 덜 왔는데 다음엔 챙겨주세요.', menu: '얼그레이 레몬티 2잔', tags: ['일반', '개선요청'] }
+      { text: '커피 맛은 무난하고 깔끔한데 얼음이 조금 빨리 녹은 것 같아요. 그래도 잘 마셨습니다.', menu: '카페라떼 (ICED)', tags: ['일반', '무난함'] },
+      { text: '배달 시간은 보통이었고 디저트도 무난했어요. 가성비는 평범한 편입니다.', menu: '버터 크로플 세트 + 아메리카노 (ICED)', tags: ['일반', '가성비보통'] },
+      { text: '음료 맛은 깔끔합니다. 다만 빨대가 하나 덜 왔는데 다음엔 챙겨주세요.', menu: '얼그레이 피치 레몬티', tags: ['일반', '개선요청'] }
     ],
     chicken: [
       { text: '무난하게 잘 먹었습니다. 기름 냄새 안 나고 평범하게 괜찮은 치킨이에요.', menu: '황금 후라이드 치킨', tags: ['일반', '무난함'] },
-      { text: '배달 속도는 적당했고 맛도 나쁘지 않았어요. 소스 양이 조금만 더 많았으면 좋겠네요.', menu: '순살 간장 치킨', tags: ['일반', '개선요청'] },
-      { text: '치킨은 맛있었는데 요청사항에 무 많이 달라고 적은 게 누락되었네요. 확인 부탁드립니다.', menu: '반반 치킨 1마리', tags: ['일반', '요청사항누락'] }
+      { text: '배달 속도는 적당했고 맛도 나쁘지 않았어요. 소스 양이 조금만 더 넉넉했으면 좋겠네요.', menu: '단짠 갈릭 간장 치킨', tags: ['일반', '개선요청'] },
+      { text: '치킨은 맛있었는데 요청사항에 무 많이 달라고 적은 게 누락되었네요. 확인 부탁드립니다.', menu: '매콤달콤 양념 치킨', tags: ['일반', '요청사항누락'] }
     ]
   },
   negative: {
     cafe: [
-      { text: '따뜻한 라떼를 시켰는데 다 식어서 미지근하게 왔어요. 뚜껑도 살짝 열려서 비닐에 샜네요.', menu: '카페라떼 (HOT)', tags: ['식음', '포장불만', '불만'] },
-      { text: '예상 시간보다 35분이나 늦게 와서 점심시간 다 끝나고 마셨습니다. 안내도 없어서 답답했네요.', menu: '아메리카노 3잔', tags: ['배달지연', '불만'] },
-      { text: '가격에 비해 양이 너무 적고 빵이 너무 딱딱하게 굳어있어서 아쉬웠습니다.', menu: '수제 에그타르트 세트', tags: ['양적다', '품질불만'] }
+      { text: '따뜻한 라떼를 시켰는데 다 식어서 미지근하게 왔어요. 뚜껑도 살짝 열려서 비닐에 샜네요.', menu: '카페라떼 (ICED)', tags: ['식음', '포장불만', '불만'], photoIdx: 1 },
+      { text: '예상 시간보다 35분이나 늦게 와서 점심시간 다 끝나고 마셨습니다. 안내도 없어서 답답했네요.', menu: '아메리카노 (ICED)', tags: ['배달지연', '불만'] },
+      { text: '가격에 비해 양이 너무 적고 빵이 너무 딱딱하게 굳어있어서 아쉬웠습니다.', menu: '생딸기 바스크 케이크', tags: ['양적다', '품질불만'] }
     ],
     chicken: [
-      { text: '비가 와서 그런지 예상 시간보다 40분이나 늦었고 치킨이 다 식어서 껍질이 눅눅했어요.', menu: '황금 후라이드 치킨', tags: ['배달지연', '식음', '불만'] },
-      { text: '치즈볼 세트를 분명 추가 결제했는데 누락되어 안 왔습니다. 전화도 안 받으시고 실망입니다.', menu: '양념 치킨 + 치즈볼 세트', tags: ['포장누락', '불만'] },
-      { text: '튀김옷에 기름이 너무 많이 배어있어서 몇 조각 못 먹고 물렸네요. 기름 관리 신경 써주세요.', menu: '순살 후라이드 치킨', tags: ['품질불만', '기름짐'] }
+      { text: '비가 와서 그런지 예상 시간보다 40분이나 늦었고 치킨이 다 식어서 껍질이 눅눅했어요.', menu: '황금 후라이드 치킨', tags: ['배달지연', '식음', '불만'], photoIdx: 1 },
+      { text: '치즈볼 세트를 분명 추가 결제했는데 누락되어 안 왔습니다. 전화도 안 받으시고 실망입니다.', menu: '매콤달콤 양념 치킨 + 특제 모짜 치즈볼', tags: ['포장누락', '불만'] },
+      { text: '튀김옷에 기름이 너무 많이 배어있어서 몇 조각 못 먹고 물렸네요. 기름 관리 신경 써주세요.', menu: '바삭 순살 파닭', tags: ['품질불만', '기름짐'] }
     ]
   }
 }
+
+const MOCK_CUSTOMERS = [
+  '수성구미식가', '동성로단골러', '치킨러버24', '퇴근길소확행', '치맥조아', 
+  '라떼파', '배고픈다람쥐', '대구맛집헌터', '바삭킹', '커피향기'
+]
 
 export function getCustomerLoyaltyBadge(orderCount?: number) {
   const count = orderCount ?? 1
@@ -279,6 +310,67 @@ const getInitialStoreId = (): string => {
     return localStorage.getItem('localmate_store_id') || 'cafe'
   }
   return 'cafe'
+}
+
+// 🎯 [가상 주문 전용] 매출 및 전산표(차트/TOP5) 누적 함수
+const triggerGlobalSalesAccumulation = (storeId: string, amount: number, menuName: string) => {
+  const isCafe = storeId === 'cafe'
+  const currentHour = new Date().getHours()
+  const timeKey = `${currentHour < 10 ? '0' : ''}${currentHour}:00`
+
+  // 1. 오늘 매출 & 이번 달 누적 매출 합산
+  const baseToday = isCafe ? 980000 : 1284000
+  const baseMonth = isCafe ? 15200000 : 18500000
+
+  const curToday = Number(localStorage.getItem(`localmate_today_sales_${storeId}`)) || baseToday
+  const curMonth = Number(localStorage.getItem(`localmate_month_sales_${storeId}`)) || baseMonth
+
+  const newToday = curToday + amount
+  const newMonth = curMonth + amount
+
+  localStorage.setItem(`localmate_today_sales_${storeId}`, newToday.toString())
+  localStorage.setItem(`localmate_month_sales_${storeId}`, newMonth.toString())
+
+  // 2. 시간대별 차트 데이터 갱신
+  const savedHourly = localStorage.getItem(`localmate_hourly_sales_${storeId}`)
+  if (savedHourly) {
+    try {
+      const list = JSON.parse(savedHourly)
+      const updated = list.map((item: any) => {
+        if (item.time === timeKey) {
+          return { ...item, sales: item.sales + amount }
+        }
+        return item
+      })
+      localStorage.setItem(`localmate_hourly_sales_${storeId}`, JSON.stringify(updated))
+    } catch (e) {}
+  }
+
+  // 3. 인기 메뉴 TOP 5 판매량 갱신
+  const savedTop = localStorage.getItem(`localmate_top_menus_${storeId}`)
+  if (savedTop) {
+    try {
+      const list = JSON.parse(savedTop)
+      let matched = false
+      const updated = list.map((item: any) => {
+        if (menuName.includes(item.name) || item.name.includes(menuName)) {
+          matched = true
+          return { ...item, count: item.count + 1 }
+        }
+        return item
+      })
+      if (!matched && updated.length > 0) {
+        updated[0].count += 1
+      }
+      updated.sort((a: any, b: any) => b.count - a.count)
+      localStorage.setItem(`localmate_top_menus_${storeId}`, JSON.stringify(updated))
+    } catch (e) {}
+  }
+
+  // 4. 전역 동기화 이벤트 발행
+  window.dispatchEvent(new CustomEvent('localmate_sales_updated', {
+    detail: { storeId, amount, timeKey, menuName }
+  }))
 }
 
 export function ReviewsView() {
@@ -436,7 +528,18 @@ export function ReviewsView() {
     return applyForbiddenWordsFilter(`고객님, 안녕하십니까. ${storeLabel}입니다.\n정성껏 준비한 메뉴가 큰 만족을 드린 것 같아 기쁩니다.\n${highlight}\n앞으로도 변함없는 맛으로 보답하겠습니다.`, selectedStoreId)
   }
 
-  // 🎯 일반 / 불만 / 긍정 리뷰 1:1:1 동일 확률(각 33.3%) 생성 핸들러
+  // 🎯 1. [가상 주문 인입] - 오로지 매출과 전산표(차트/TOP5)에만 누적 반영됨 (리뷰 생성 X)
+  const handleQuickOrder = () => {
+    const isCafe = selectedStoreId === 'cafe'
+    const orderPool = isCafe ? DIVERSE_MENU_ORDERS.cafe : DIVERSE_MENU_ORDERS.chicken
+    const chosen = orderPool[Math.floor(Math.random() * orderPool.length)]
+
+    triggerGlobalSalesAccumulation(selectedStoreId, chosen.price, chosen.name)
+    setInfoMessage(`⚡ [배달 주문 인입] '${chosen.name}' (+${chosen.price.toLocaleString()}원)이 오늘 매출과 매장 분석에 즉각 반영되었습니다!`)
+    setTimeout(() => setInfoMessage(null), 3500)
+  }
+
+  // 🎯 2. [가상 리뷰 생성] - 오로지 리뷰 관리와 감성 분석에만 반영됨 (매출 변동 X)
   const handleCreateMockReview = () => {
     const isCafe = selectedStoreId === 'cafe'
     const photoPool = isCafe ? CAFE_PHOTOS : CHICKEN_PHOTOS
@@ -446,7 +549,6 @@ export function ReviewsView() {
     const currentMin = new Date().getMinutes()
     const timeString = `오늘 ${currentHour < 12 ? '오전' : '오후'} ${currentHour % 12 || 12}:${currentMin < 10 ? '0' : ''}${currentMin}`
 
-    // 🎯 1/3 (33.3%) 확률로 유형 결정: 긍정(0) / 일반(1) / 불만(2)
     const rand = Math.random()
     let reviewType: 'positive' | 'neutral' | 'negative'
     let rating: number
@@ -470,8 +572,12 @@ export function ReviewsView() {
     const templates = MOCK_REVIEW_TEMPLATES[reviewType][storeKey]
     const chosenTemplate = templates[Math.floor(Math.random() * templates.length)]
 
-    const hasPhoto = reviewType === 'positive' ? Math.random() > 0.3 : Math.random() > 0.6
-    const selectedPhoto = hasPhoto ? photoPool[Math.floor(Math.random() * photoPool.length)] : undefined
+    let selectedPhoto: string | undefined = undefined
+    if (typeof chosenTemplate.photoIdx === 'number') {
+      selectedPhoto = photoPool[chosenTemplate.photoIdx]
+    } else if (reviewType === 'positive') {
+      selectedPhoto = photoPool[Math.floor(Math.random() * photoPool.length)]
+    }
 
     const newReview: Review = {
       id: `mock-${Date.now()}`,
@@ -487,8 +593,10 @@ export function ReviewsView() {
       orderCount: reviewType === 'negative' ? 1 : Math.floor(Math.random() * 5) + 1
     } as any
 
+    // 🎯 리뷰 목록만 갱신 (매출 누적 함수는 일절 호출하지 않음)
     saveAndSetReviews([newReview, ...reviews])
-    setInfoMessage(`🎲 [${typeLabel} (★ ${rating})] 가상 리뷰가 성공적으로 생성되었습니다!`)
+
+    setInfoMessage(`📝 [${typeLabel} (★ ${rating})] 가상 리뷰가 등록되었습니다. (매출 변동 없이 CS 분석에만 반영됩니다)`)
     setTimeout(() => setInfoMessage(null), 3500)
   }
 
@@ -598,16 +706,25 @@ export function ReviewsView() {
     }, 600)
   }
 
+  // 🎯 초기화: 리뷰 목록과 함께 가상 주문으로 누적된 매출 데이터도 기본값으로 일괄 리셋
   const handleResetReviews = () => {
-    if (confirm('현재 매장의 리뷰 데이터를 기본 6건으로 깨끗하게 초기화하시겠습니까?')) {
+    if (confirm('현재 매장의 리뷰와 함께 가상 주문으로 누적된 매출, 시간대별 차트, 인기 메뉴 통계를 모두 초기화하시겠습니까?')) {
       const freshDefaults = getDefaultData(selectedStoreId)
       saveAndSetReviews(freshDefaults)
-      
+
+      localStorage.removeItem(`localmate_today_sales_${selectedStoreId}`)
+      localStorage.removeItem(`localmate_month_sales_${selectedStoreId}`)
+      localStorage.removeItem(`localmate_hourly_sales_${selectedStoreId}`)
+      localStorage.removeItem(`localmate_top_menus_${selectedStoreId}`)
+
+      window.dispatchEvent(new CustomEvent('localmate_sales_reset', { detail: selectedStoreId }))
+      window.dispatchEvent(new CustomEvent('localmate_sales_updated', { detail: { storeId: selectedStoreId } }))
+
       setDrafts({})
       setFilter('all')
       setSearchQuery('')
-      setInfoMessage(`✅ 리뷰 목록이 초기 기본 데이터(${freshDefaults.length}건)로 완벽히 복원되었습니다.`)
-      setTimeout(() => setInfoMessage(null), 3000)
+      setInfoMessage(`✅ 리뷰 및 누적 매출·통계가 매장 기본 상태로 완벽히 리셋되었습니다.`)
+      setTimeout(() => setInfoMessage(null), 3500)
     }
   }
 
@@ -652,10 +769,21 @@ export function ReviewsView() {
             
             <div className="w-px h-6 bg-slate-200 mx-2"></div>
             
+            {/* 🎯 1. 가상 주문 인입 (매출·전산표 전용) */}
+            <button
+              onClick={handleQuickOrder}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition shadow-xs"
+              title="클릭 시 다양한 메뉴가 랜덤으로 결제 인입되어 오늘 매출과 매장 분석에 즉시 반영됩니다 (리뷰 생성 X)"
+            >
+              <ShoppingBag className="size-4 text-blue-600" />
+              <span>가상 주문 인입</span>
+            </button>
+
+            {/* 🎯 2. 가상 리뷰 생성 (CS·감성 분석 전용, 매출 변동 없음) */}
             <button
               onClick={handleCreateMockReview}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition shadow-xs"
-              title="긍정(5점), 일반(3점), 불만(1~2점) 리뷰가 동일 확률(33%)로 균등 생성됩니다"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition shadow-xs"
+              title="클릭 시 가상 리뷰가 생성되어 CS 분석에 반영됩니다 (매출은 증가하지 않습니다)"
             >
               <PlusCircle className="size-4 text-emerald-600" />
               <span>가상 리뷰 생성</span>
@@ -707,7 +835,7 @@ export function ReviewsView() {
             <button
               onClick={handleResetReviews}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition shadow-xs"
-              title="리뷰 데이터 초기화 (기본 6건 복원)"
+              title="리뷰 데이터 및 누적 매출/차트 전체를 초기값으로 리셋합니다"
             >
               <RotateCcw className="size-3.5 text-slate-500" />
               <span>초기화</span>
