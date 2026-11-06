@@ -22,6 +22,44 @@ const DEFAULT_STORES = [
   { id: 'chicken', name: '🍗 수성 치킨 (지점)', icon: '🍗' }
 ]
 
+// 🎯 초기 마운트 시 깜빡임 방지를 위한 헬퍼 함수들
+const getInitialStoreId = (): string => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('localmate_store_id') || 'cafe'
+  }
+  return 'cafe'
+}
+
+const getInitialStores = () => {
+  const updatedStores = [...DEFAULT_STORES]
+  if (typeof window !== 'undefined') {
+    const cafeSettings = localStorage.getItem('localmate_settings_cafe')
+    if (cafeSettings) {
+      try { updatedStores[0].name = JSON.parse(cafeSettings).name } catch (e) {}
+    }
+    const chickenSettings = localStorage.getItem('localmate_settings_chicken')
+    if (chickenSettings) {
+      try { updatedStores[1].name = JSON.parse(chickenSettings).name } catch (e) {}
+    }
+  }
+  return updatedStores
+}
+
+const getInitialPendingCount = (storeId: string): number => {
+  if (typeof window !== 'undefined') {
+    const savedProposals = localStorage.getItem(`localmate_proposals_v5_${storeId}`)
+    if (savedProposals) {
+      try {
+        const parsed = JSON.parse(savedProposals)
+        return parsed.filter((p: any) => p.status === 'pending').length
+      } catch (e) {}
+    }
+    const directSaved = localStorage.getItem('localmate_pending_tasks_count')
+    if (directSaved !== null) return Number(directSaved)
+  }
+  return 0
+}
+
 export function Sidebar({ 
   isCollapsed, 
   onToggleCollapse,
@@ -33,9 +71,11 @@ export function Sidebar({
 }) {
   const pathname = usePathname()
   const [isBusinessDropdownOpen, setIsBusinessDropdownOpen] = useState(false)
-  const [selectedStoreId, setSelectedStoreId] = useState('cafe')
-  const [stores, setStores] = useState(DEFAULT_STORES)
-  const [pendingTasksCount, setPendingTasksCount] = useState<number>(0)
+
+  // 🎯 첫 렌더링부터 localStorage 데이터를 즉시 주입하여 깜빡임 원천 차단
+  const [selectedStoreId, setSelectedStoreId] = useState<string>(getInitialStoreId)
+  const [stores, setStores] = useState(getInitialStores)
+  const [pendingTasksCount, setPendingTasksCount] = useState<number>(() => getInitialPendingCount(getInitialStoreId()))
 
   const loadStoreNames = () => {
     const updatedStores = [...DEFAULT_STORES]
@@ -72,6 +112,7 @@ export function Sidebar({
     syncPendingCount(saved)
 
     window.addEventListener('settingsChange', loadStoreNames)
+    
     const handleSync = (e: Event) => {
       const customEvent = e as CustomEvent<string>
       if (customEvent.detail) {
@@ -116,7 +157,7 @@ export function Sidebar({
   ]
 
   return (
-    <aside className={`fixed inset-y-0 left-0 z-40 bg-white border-r border-slate-200 flex flex-col transition-all duration-300 ${isCollapsed ? 'w-[70px]' : 'w-[250px]'}`}>
+    <aside className={`fixed inset-y-0 left-0 z-40 bg-white border-r border-slate-200 flex flex-col transition-all duration-300 font-sans ${isCollapsed ? 'w-[70px]' : 'w-[250px]'}`}>
       <div className="flex items-center justify-between p-4 border-b h-[73px]">
         <div className={`flex items-center gap-2 overflow-hidden transition-all duration-300 ${isCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100'}`}>
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 font-bold text-white shrink-0">LM</div>
@@ -213,3 +254,5 @@ export function Sidebar({
     </aside>
   )
 }
+
+export default Sidebar

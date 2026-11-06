@@ -40,7 +40,7 @@ const CAFE_PHOTOS = [
   'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=500&auto=format&fit=crop&q=80'
 ]
 
-// 🎯 기본 6건 치킨 정예 데이터 (orderCount 고정)
+// 기본 6건 치킨 정예 데이터
 const DEFAULT_CHICKEN_REVIEWS: any[] = [
   {
     id: 'chk-def-1',
@@ -119,7 +119,7 @@ const DEFAULT_CHICKEN_REVIEWS: any[] = [
   }
 ]
 
-// 🎯 기본 6건 카페 정예 데이터 (orderCount 고정)
+// 기본 6건 카페 정예 데이터
 const DEFAULT_CAFE_REVIEWS: any[] = [
   {
     id: 'cafe-def-1',
@@ -203,23 +203,50 @@ const MOCK_CUSTOMERS = [
   '라떼파', '배고픈다람쥐', '대구맛집헌터', '바삭킹', '커피향기'
 ]
 
-// 🎯 주문 횟수 기반 단골 뱃지 포맷팅 헬퍼 함수
 export function getCustomerLoyaltyBadge(orderCount?: number) {
-  const count = orderCount ?? 1;
+  const count = orderCount ?? 1
   if (count <= 1) {
-    return { text: '신규고객', className: 'bg-slate-100 text-slate-600 border-slate-200' };
+    return { text: '신규고객', className: 'bg-slate-100 text-slate-600 border-slate-200' }
   } else if (count >= 5) {
-    return { text: `${count}회 단골손님`, className: 'bg-amber-50 text-amber-700 border-amber-200 font-bold' };
+    return { text: `${count}회 단골손님`, className: 'bg-amber-50 text-amber-700 border-amber-200 font-bold' }
   } else {
-    return { text: `재주문 ${count}회`, className: 'bg-blue-50 text-blue-600 border-blue-200' };
+    return { text: `재주문 ${count}회`, className: 'bg-blue-50 text-blue-600 border-blue-200' }
   }
 }
 
 const getStorageKey = (storeId: string) => `localmate_reviews_v12_${storeId}`
 
+const getDefaultData = (storeId: string): Review[] => {
+  const raw = storeId === 'chicken' ? DEFAULT_CHICKEN_REVIEWS : DEFAULT_CAFE_REVIEWS
+  return JSON.parse(JSON.stringify(raw))
+}
+
+const loadReviewsFromStorage = (storeId: string): Review[] => {
+  if (typeof window === 'undefined') return getDefaultData(storeId)
+  const storageKey = getStorageKey(storeId)
+  try {
+    const saved = localStorage.getItem(storageKey)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+    }
+  } catch (e) {}
+  const defaults = getDefaultData(storeId)
+  localStorage.setItem(storageKey, JSON.stringify(defaults))
+  return defaults
+}
+
+const getInitialStoreId = (): string => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('localmate_store_id') || 'cafe'
+  }
+  return 'cafe'
+}
+
 export function ReviewsView() {
-  const [selectedStoreId, setSelectedStoreId] = useState('cafe')
-  const [reviews, setReviews] = useState<Review[]>([])
+  // 초기 렌더링 시점에 localStorage 값을 즉시 읽어 깜빡임 방지
+  const [selectedStoreId, setSelectedStoreId] = useState<string>(getInitialStoreId)
+  const [reviews, setReviews] = useState<Review[]>(() => loadReviewsFromStorage(getInitialStoreId()))
   const [filter, setFilter] = useState<'all' | 'unanswered' | 'negative'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   
@@ -227,40 +254,20 @@ export function ReviewsView() {
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [infoMessage, setInfoMessage] = useState<string | null>(null)
 
-  const getDefaultData = (storeId: string): Review[] => {
-    const raw = storeId === 'chicken' ? DEFAULT_CHICKEN_REVIEWS : DEFAULT_CAFE_REVIEWS
-    return JSON.parse(JSON.stringify(raw))
-  }
-
-  const loadReviewsFromStorage = (storeId: string): Review[] => {
-    const storageKey = getStorageKey(storeId)
-    try {
-      const saved = localStorage.getItem(storageKey)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed
-      }
-    } catch (e) {}
-    const defaults = getDefaultData(storeId)
-    localStorage.setItem(storageKey, JSON.stringify(defaults))
-    return defaults
-  }
-
   const updateReviewsByStore = (storeId: string) => {
+    setSelectedStoreId(storeId)
     const loaded = loadReviewsFromStorage(storeId)
     setReviews(loaded)
   }
 
   useEffect(() => {
     const savedStore = localStorage.getItem('localmate_store_id') || 'cafe'
-    setSelectedStoreId(savedStore)
     updateReviewsByStore(savedStore)
 
     const handleSync = (e: Event) => {
       const customEvent = e as CustomEvent<string>
       if (customEvent.detail) {
         const newStoreId = customEvent.detail
-        setSelectedStoreId(newStoreId)
         updateReviewsByStore(newStoreId)
         setFilter('all')
         setSearchQuery('')
@@ -276,9 +283,11 @@ export function ReviewsView() {
     
     window.addEventListener('storeChange', handleSync)
     window.addEventListener('settingsChange', handleSettingsUpdate)
+    window.addEventListener('storage', handleSettingsUpdate)
     return () => {
       window.removeEventListener('storeChange', handleSync)
       window.removeEventListener('settingsChange', handleSettingsUpdate)
+      window.removeEventListener('storage', handleSettingsUpdate)
     }
   }, [])
 
@@ -415,7 +424,7 @@ export function ReviewsView() {
       photo: selectedPhoto,
       imageUrl: selectedPhoto,
       eventParticipant: true,
-      orderCount: Math.floor(Math.random() * 8) + 1 // 1회 ~ 8회 랜덤 부여
+      orderCount: Math.floor(Math.random() * 8) + 1
     } as any
 
     saveAndSetReviews([newReview, ...reviews])
@@ -542,6 +551,7 @@ export function ReviewsView() {
     }
   }
 
+  // 매장별 플랫폼 및 색상 즉시 결정
   const currentPlatform = selectedStoreId === 'cafe' ? '배달의민족' : '쿠팡이츠'
   const currentPlatformColor = selectedStoreId === 'cafe' ? 'bg-[#2ac1bc]' : 'bg-[#00a8ec]'
 
@@ -685,7 +695,6 @@ export function ReviewsView() {
         <div className="max-w-4xl mx-auto shadow-sm border border-slate-200 rounded-2xl bg-white overflow-hidden divide-y divide-border">
           {filteredReviews.length > 0 ? (
             filteredReviews.map((review) => {
-              // 🎯 단골 뱃지 정보 계산 후 ReviewCard로 전달
               const loyalty = getCustomerLoyaltyBadge((review as any).orderCount)
               const enhancedReview = { ...review, loyaltyBadge: loyalty }
 
@@ -693,16 +702,16 @@ export function ReviewsView() {
                 <ReviewCard 
                   key={review.id} 
                   review={enhancedReview} 
-                	draft={drafts[review.id]}
-                	onGenerate={handleGenerate}
-                	onDraftChange={handleDraftChange}
-                	onCancel={handleCancel}
-                	onSave={handleSave}
-                	onEdit={handleEdit}
-                	onDelete={handleDelete}
-              />
-            )
-          })
+                  draft={drafts[review.id]}
+                  onGenerate={handleGenerate}
+                  onDraftChange={handleDraftChange}
+                  onCancel={handleCancel}
+                  onSave={handleSave}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
+              )
+            })
           ) : (
             <div className="py-20 flex flex-col items-center justify-center text-slate-400">
               <MessageSquare className="size-12 mb-3 opacity-20" />

@@ -43,12 +43,35 @@ const TONE_MODE_LABELS: Record<ToneType, string> = {
   concise: '간결 모드'
 }
 
-// 7대 핵심 금지어 유지
 const RECOMMENDED_FORBIDDEN_TAGS = ['맛없다', '비싸다', '양적다', '식었다', '배달지연', '라이더', '환불']
 
+// 🎯 초기 마운트 시 깜빡임 방지용 로더 함수
+const getInitialStoreId = (): string => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('localmate_store_id') || 'cafe'
+  }
+  return 'cafe'
+}
+
+const getInitialFormData = (storeId: string): StoreSettings => {
+  const fallback = storeId === 'cafe' ? DEFAULT_SETTINGS.cafe : DEFAULT_SETTINGS.chicken
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem(`localmate_settings_${storeId}`)
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch (e) {
+        return fallback
+      }
+    }
+  }
+  return fallback
+}
+
 export function SettingsView() {
-  const [selectedStoreId, setSelectedStoreId] = useState('cafe')
-  const [formData, setFormData] = useState<StoreSettings>(DEFAULT_SETTINGS.cafe)
+  // 1. 초기 렌더링부터 localStorage의 저장된 지점 정보를 즉시 주입 (깜빡임 차단)
+  const [selectedStoreId, setSelectedStoreId] = useState<string>(getInitialStoreId)
+  const [formData, setFormData] = useState<StoreSettings>(() => getInitialFormData(getInitialStoreId()))
   const [isSaved, setIsSaved] = useState(false)
   const [addressError, setAddressError] = useState<string | null>(null)
 
@@ -86,8 +109,24 @@ export function SettingsView() {
         }
       }
     }
+
+    const handleStorage = () => {
+      const current = localStorage.getItem('localmate_store_id') || 'cafe'
+      setSelectedStoreId(current)
+      const currentSettings = localStorage.getItem(`localmate_settings_${current}`)
+      if (currentSettings) {
+        try {
+          setFormData(JSON.parse(currentSettings))
+        } catch (e) {}
+      }
+    }
+
     window.addEventListener('storeChange', handleSync)
-    return () => window.removeEventListener('storeChange', handleSync)
+    window.addEventListener('storage', handleStorage)
+    return () => {
+      window.removeEventListener('storeChange', handleSync)
+      window.removeEventListener('storage', handleStorage)
+    }
   }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -176,7 +215,7 @@ export function SettingsView() {
       : []
   }, [formData.forbiddenWords])
 
-  // 🎯 각 금지어의 개별 활성화 상태에 따라 완전히 자연스러운 문맥을 조립하는 엔진
+  // 각 금지어의 개별 활성화 상태에 따라 문맥 조립
   const { filteredText, detectedForbidden } = useMemo(() => {
     const has = (word: string) => activeForbiddenList.includes(word)
     const detected: string[] = RECOMMENDED_FORBIDDEN_TAGS.filter(tag => has(tag))
@@ -247,7 +286,7 @@ export function SettingsView() {
   }, [formData.tone, formData.compensationPolicy, activeForbiddenList])
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6 pb-24">
+    <div className="p-6 max-w-6xl mx-auto space-y-6 pb-24 font-sans">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">매장 설정 및 AI 정책</h1>
@@ -529,3 +568,5 @@ export function SettingsView() {
     </div>
   )
 }
+
+export default SettingsView

@@ -94,10 +94,31 @@ const CHICKEN_ORDERS = [
   '시그니처 통닭 세트 + 어묵탕'
 ]
 
+// 🎯 Ypykue jepytéva (localStorage-gui ojagarra pya'e hag̃ua)
+const getInitialStore = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('localmate_store_id') || 'cafe'
+  }
+  return 'cafe'
+}
+
+const getInitialTables = (storeId: string) => {
+  const isCafe = storeId === 'cafe'
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem(`localmate_tables_${storeId}`)
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch (e) {}
+    }
+  }
+  return isCafe ? INITIAL_CAFE_TABLES : INITIAL_CHICKEN_TABLES
+}
+
 export function ReservationsView() {
-  const [storeId, setStoreId] = useState('chicken')
-  const [storeName, setStoreName] = useState('수성 치킨 (지점)')
-  const [tables, setTables] = useState<TableItem[]>(INITIAL_CHICKEN_TABLES)
+  const [storeId, setStoreId] = useState(getInitialStore)
+  const [storeName, setStoreName] = useState(() => getInitialStore() === 'cafe' ? '동성로 카페 (본점)' : '수성 치킨 (지점)')
+  const [tables, setTables] = useState<TableItem[]>(() => getInitialTables(getInitialStore()))
   const [noShowTimeoutMinutes, setNoShowTimeoutMinutes] = useState(15)
   const [selectedTable, setSelectedTable] = useState<TableItem | null>(null)
   const [waitingCount, setWaitingCount] = useState(0)
@@ -121,7 +142,7 @@ export function ReservationsView() {
   }
 
   useEffect(() => {
-    const currentStore = localStorage.getItem('localmate_store_id') || 'chicken'
+    const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
     loadStoreTables(currentStore)
 
     const savedTimeout = localStorage.getItem('localmate_noshow_timeout')
@@ -135,7 +156,11 @@ export function ReservationsView() {
     }
 
     window.addEventListener('storeChange', handleStoreSync)
-    return () => window.removeEventListener('storeChange', handleStoreSync)
+    window.addEventListener('storage', handleStoreSync)
+    return () => {
+      window.removeEventListener('storeChange', handleStoreSync)
+      window.removeEventListener('storage', handleStoreSync)
+    }
   }, [])
 
   const saveTables = (newTables: TableItem[]) => {

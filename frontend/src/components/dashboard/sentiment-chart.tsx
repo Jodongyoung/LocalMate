@@ -27,7 +27,7 @@ function ChartTooltip({
   if (!active || !payload?.length) return null
   const total = payload.reduce((sum, p) => sum + (p.value || 0), 0)
   return (
-    <div className="rounded-xl border bg-popover px-3 py-2.5 shadow-lg text-xs min-w-36">
+    <div className="rounded-xl border bg-popover px-3 py-2.5 shadow-lg text-xs min-w-36 font-sans">
       <p className="font-semibold mb-1.5">{label} 리뷰 {total}건</p>
       {payload.map((p) => {
         const s = series.find((x) => x.key === p.dataKey)
@@ -48,29 +48,49 @@ function ChartTooltip({
   )
 }
 
+// 🎯 첫 렌더링 깜빡임 방지를 위한 초기 감성 트렌드 로더
+const getInitialSentimentData = () => {
+  if (typeof window !== 'undefined') {
+    const storeId = localStorage.getItem('localmate_store_id') || 'cafe'
+    return storeId === 'cafe' ? STORE_DASHBOARD_DATA.cafe.sentimentTrend : STORE_DASHBOARD_DATA.chicken.sentimentTrend
+  }
+  return STORE_DASHBOARD_DATA.cafe.sentimentTrend
+}
+
 export function SentimentChart() {
   const [hidden, setHidden] = useState<SeriesKey[]>([])
-  const [chartData, setChartData] = useState(STORE_DASHBOARD_DATA.chicken.sentimentTrend)
+  
+  // 1. 초기 상태부터 localStorage 지점 정보를 정확히 반영하여 깜빡임 원천 차단
+  const [chartData, setChartData] = useState(getInitialSentimentData)
 
-  // 매장 변경 이벤트(storeChange) 감지하여 차트 데이터 실시간 연동
+  // 2. 매장 변경 이벤트(storeChange 및 storage) 감지하여 차트 데이터 실시간 연동
   useEffect(() => {
     const updateStoreData = (storeId: string) => {
       const data = storeId === 'cafe' ? STORE_DASHBOARD_DATA.cafe.sentimentTrend : STORE_DASHBOARD_DATA.chicken.sentimentTrend
       setChartData(data)
     }
 
-    const savedStore = localStorage.getItem('localmate_store_id') || 'chicken'
+    const savedStore = localStorage.getItem('localmate_store_id') || 'cafe'
     updateStoreData(savedStore)
 
     const handleSync = (e: Event) => {
       const customEvent = e as CustomEvent<string>
-      if (customEvent.detail) {
-        updateStoreData(customEvent.detail)
-      }
+      const targetStore = customEvent.detail || localStorage.getItem('localmate_store_id') || 'cafe'
+      updateStoreData(targetStore)
+    }
+
+    const handleStorageSync = () => {
+      const targetStore = localStorage.getItem('localmate_store_id') || 'cafe'
+      updateStoreData(targetStore)
     }
 
     window.addEventListener('storeChange', handleSync)
-    return () => window.removeEventListener('storeChange', handleSync)
+    window.addEventListener('storage', handleStorageSync)
+    
+    return () => {
+      window.removeEventListener('storeChange', handleSync)
+      window.removeEventListener('storage', handleStorageSync)
+    }
   }, [])
 
   const latest = chartData[chartData.length - 1] || { positive: 0, complaint: 0, improvement: 0 }
@@ -82,10 +102,10 @@ export function SentimentChart() {
   }
 
   return (
-    <div className="rounded-2xl border bg-card p-5 shadow-sm h-full flex flex-col">
+    <div className="rounded-2xl border bg-card p-5 shadow-sm h-full flex flex-col font-sans">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-semibold">월별 리뷰 감성 분석</h2>
+          <h2 className="font-semibold text-sm">월별 리뷰 감성 분석</h2>
           <p className="text-xs text-muted-foreground mt-0.5">최근 6개월 · 배달의민족 리뷰 기준</p>
         </div>
         <div className="text-right">
@@ -144,3 +164,5 @@ export function SentimentChart() {
     </div>
   )
 }
+
+export default SentimentChart

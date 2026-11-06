@@ -6,13 +6,22 @@ import { formatKRW, STORE_DASHBOARD_DATA } from '@/lib/mock-data'
 
 const presets = [20_000_000, 25_000_000, 30_000_000]
 
+// 🎯 첫 렌더링 깜빡임 방지를 위한 초기 지점 데이터 로더
+const getInitialStoreData = () => {
+  if (typeof window !== 'undefined') {
+    const storeId = localStorage.getItem('localmate_store_id') || 'cafe'
+    return storeId === 'cafe' ? STORE_DASHBOARD_DATA.cafe.salesTarget : STORE_DASHBOARD_DATA.chicken.salesTarget
+  }
+  return STORE_DASHBOARD_DATA.cafe.salesTarget
+}
+
 export function SalesTargetCard() {
-  // 1. 현재 선택된 매장에 맞는 초기 데이터 설정
-  const [storeData, setStoreData] = useState(STORE_DASHBOARD_DATA.chicken.salesTarget)
+  // 1. 초기 상태부터 localStorage 지점 정보를 정확히 반영
+  const [storeData, setStoreData] = useState(getInitialStoreData)
   const [goal, setGoal] = useState(storeData.target)
   const [editing, setEditing] = useState(false)
 
-  // 2. 매장 변경 이벤트(storeChange) 감지하여 데이터 실시간 연동
+  // 2. 매장 변경 이벤트(storeChange 및 storage) 감지하여 데이터 실시간 연동
   useEffect(() => {
     const updateStore = (storeId: string) => {
       const targetData = storeId === 'cafe' ? STORE_DASHBOARD_DATA.cafe.salesTarget : STORE_DASHBOARD_DATA.chicken.salesTarget
@@ -20,18 +29,22 @@ export function SalesTargetCard() {
       setGoal(targetData.target)
     }
 
-    const savedStore = localStorage.getItem('localmate_store_id') || 'chicken'
+    const savedStore = localStorage.getItem('localmate_store_id') || 'cafe'
     updateStore(savedStore)
 
     const handleSync = (e: Event) => {
       const customEvent = e as CustomEvent<string>
-      if (customEvent.detail) {
-        updateStore(customEvent.detail)
-      }
+      const targetStore = customEvent.detail || localStorage.getItem('localmate_store_id') || 'cafe'
+      updateStore(targetStore)
     }
 
     window.addEventListener('storeChange', handleSync)
-    return () => window.removeEventListener('storeChange', handleSync)
+    window.addEventListener('storage', handleSync)
+    
+    return () => {
+      window.removeEventListener('storeChange', handleSync)
+      window.removeEventListener('storage', handleSync)
+    }
   }, [])
 
   const current = storeData.current
@@ -41,7 +54,7 @@ export function SalesTargetCard() {
   const dailyNeeded = Math.ceil(remaining / daysLeft / 1000) * 1000
 
   return (
-    <div className="rounded-2xl border bg-card p-5 shadow-sm">
+    <div className="rounded-2xl border bg-card p-5 shadow-sm font-sans">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <div className="size-8 rounded-lg bg-secondary text-secondary-foreground flex items-center justify-center">

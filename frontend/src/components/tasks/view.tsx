@@ -162,17 +162,76 @@ const STORE_DEFAULT_PROPOSALS: Record<string, OperationalTask[]> = {
   ]
 }
 
+// 🎯 초기 마운트 시 깜빡임 방지용 로더 함수들
+const getInitialStoreId = (): string => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('localmate_store_id') || 'cafe'
+  }
+  return 'cafe'
+}
+
+const getInitialMenuPool = (storeId: string): MenuItem[] => {
+  const isCafe = storeId === 'cafe'
+  const defaultPool = isCafe ? STORE_MENU_POOLS.cafe : STORE_MENU_POOLS.chicken
+  if (typeof window !== 'undefined') {
+    const savedPool = localStorage.getItem(`localmate_menupool_v5_${storeId}`)
+    if (savedPool) {
+      try {
+        return JSON.parse(savedPool)
+      } catch (e) {}
+    }
+  }
+  return defaultPool
+}
+
+const getInitialStockItems = (storeId: string): StockItem[] => {
+  const isCafe = storeId === 'cafe'
+  const defaultStock = isCafe ? STORE_DEFAULT_STOCKS.cafe : STORE_DEFAULT_STOCKS.chicken
+  if (typeof window !== 'undefined') {
+    const savedStock = localStorage.getItem(`localmate_stock_v5_${storeId}`)
+    if (savedStock) {
+      try {
+        const parsed = JSON.parse(savedStock) as StockItem[]
+        if (isCafe && parsed.some(p => p.name.includes('치킨'))) {
+          return defaultStock
+        } else if (!isCafe && parsed.some(p => p.name.includes('아메리카노') || p.name.includes('케이크'))) {
+          return defaultStock
+        } else {
+          return parsed
+        }
+      } catch (e) {}
+    }
+  }
+  return defaultStock
+}
+
+const getInitialProposals = (storeId: string): OperationalTask[] => {
+  const isCafe = storeId === 'cafe'
+  const defaultProposals = isCafe ? STORE_DEFAULT_PROPOSALS.cafe : STORE_DEFAULT_PROPOSALS.chicken
+  if (typeof window !== 'undefined') {
+    const savedProposals = localStorage.getItem(`localmate_proposals_v5_${storeId}`)
+    if (savedProposals) {
+      try {
+        return JSON.parse(savedProposals)
+      } catch (e) {}
+    }
+  }
+  return defaultProposals
+}
+
 export function TasksView() {
-  const [selectedStoreId, setSelectedStoreId] = useState('cafe')
-  const [menuPool, setMenuPool] = useState<MenuItem[]>([])
-  const [stockItems, setStockItems] = useState<StockItem[]>([])
-  const [proposals, setProposals] = useState<OperationalTask[]>([])
+  // 1. 초기 렌더링부터 localStorage의 저장된 지점 정보를 즉시 주입 (깜빡임 차단)
+  const [selectedStoreId, setSelectedStoreId] = useState<string>(getInitialStoreId)
+  const [menuPool, setMenuPool] = useState<MenuItem[]>(() => getInitialMenuPool(getInitialStoreId()))
+  const [stockItems, setStockItems] = useState<StockItem[]>(() => getInitialStockItems(getInitialStoreId()))
+  const [proposals, setProposals] = useState<OperationalTask[]>(() => getInitialProposals(getInitialStoreId()))
   const [isEditingStock, setIsEditingStock] = useState(false)
   const [editList, setEditList] = useState<StockItem[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // 1. 매장별 독립 데이터 로드 함수
+  // 매장별 독립 데이터 로드 함수
   const loadStoreData = (storeId: string) => {
+    setSelectedStoreId(storeId)
     const isCafe = storeId === 'cafe'
     const defaultPool = isCafe ? STORE_MENU_POOLS.cafe : STORE_MENU_POOLS.chicken
     const defaultStock = isCafe ? STORE_DEFAULT_STOCKS.cafe : STORE_DEFAULT_STOCKS.chicken
@@ -190,12 +249,11 @@ export function TasksView() {
       setMenuPool(defaultPool)
     }
 
-    // 트래커 품목 로드 (이전 치킨 데이터가 카페에 섞이지 않도록 엄격 검증)
+    // 트래커 품목 로드
     const savedStock = localStorage.getItem(`localmate_stock_v5_${storeId}`)
     if (savedStock) {
       try {
         const parsed = JSON.parse(savedStock) as StockItem[]
-        // 카페인데 치킨 메뉴가 들어있으면 기본 카페 데이터로 리셋
         if (isCafe && parsed.some(p => p.name.includes('치킨'))) {
           setStockItems(defaultStock)
           localStorage.setItem(`localmate_stock_v5_${storeId}`, JSON.stringify(defaultStock))
@@ -227,20 +285,28 @@ export function TasksView() {
 
   useEffect(() => {
     const savedStore = localStorage.getItem('localmate_store_id') || 'cafe'
-    setSelectedStoreId(savedStore)
     loadStoreData(savedStore)
 
     const handleSync = (e: Event) => {
       const customEvent = e as CustomEvent<string>
       if (customEvent.detail) {
-        const newStoreId = customEvent.detail
-        setSelectedStoreId(newStoreId)
-        loadStoreData(newStoreId)
+        loadStoreData(customEvent.detail)
         setIsEditingStock(false)
       }
     }
+
+    const handleStorage = () => {
+      const current = localStorage.getItem('localmate_store_id') || 'cafe'
+      loadStoreData(current)
+      setIsEditingStock(false)
+    }
+
     window.addEventListener('storeChange', handleSync)
-    return () => window.removeEventListener('storeChange', handleSync)
+    window.addEventListener('storage', handleStorage)
+    return () => {
+      window.removeEventListener('storeChange', handleSync)
+      window.removeEventListener('storage', handleStorage)
+    }
   }, [])
 
   // 2. localStorage 저장 및 사이드바 뱃지 동기화
@@ -272,7 +338,6 @@ export function TasksView() {
     let updatedProposals = [...proposals]
 
     const threshold = item.perOrder * 2
-    // 🎯 소진 임박: 배달앱 품절 승인 카드
     if (nextCurrent > 0 && nextCurrent <= threshold) {
       const warningTaskId = `task-stock-warning-${item.id}`
       if (!updatedProposals.some(p => p.id === warningTaskId && p.status === 'pending')) {
@@ -292,7 +357,6 @@ export function TasksView() {
       }
     }
 
-    // 🎯 0개 완전 소진: 품절 확정 및 매출 부스팅 카드 교체
     if (nextCurrent === 0) {
       const zeroTaskId = `task-stock-zero-${item.id}`
       updatedProposals = updatedProposals.filter(p => p.id !== `task-stock-warning-${item.id}`)
@@ -396,7 +460,7 @@ export function TasksView() {
     syncAndSave(proposals, cleaned)
   }
 
-  // 9. 메뉴판 CSV 파일 업로드 파싱 핸들러 (4개 컬럼 순수 데이터)
+  // 9. 메뉴판 CSV 파일 업로드 파싱 핸들러
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -436,7 +500,7 @@ export function TasksView() {
               category,
               isLimited: false,
               initial,
-              current: initial, // 오픈 준비 수량 100% 동기화
+              current: initial,
               perOrder: 1,
               unit,
               packageDesc
@@ -457,7 +521,7 @@ export function TasksView() {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  // 10. 시뮬레이션 초기화 (현재 매장 기준으로 깔끔 리셋)
+  // 10. 시뮬레이션 초기화
   const handleResetSimulation = () => {
     if (confirm('현재 매장의 메뉴 수량과 결재 제안을 기본 상태로 리셋하시겠습니까?')) {
       const isCafe = selectedStoreId === 'cafe'
@@ -484,12 +548,10 @@ export function TasksView() {
   const pendingList = proposals.filter(p => p.status === 'pending')
   const historyList = proposals.filter(p => p.status !== 'pending')
   const isAllStockZero = stockItems.length > 0 && stockItems.every(s => s.current === 0)
-
-  // 카테고리별 유니크 목록 추출
   const availableCategories = Array.from(new Set(menuPool.map(m => m.category)))
 
   return (
-    <div className="min-h-screen bg-slate-50/60 pb-28">
+    <div className="min-h-screen bg-slate-50/60 pb-28 font-sans">
       <main className="mx-auto max-w-6xl px-4 md:px-6 py-6 space-y-6">
         {/* 상단 헤더 */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-5">
@@ -638,7 +700,6 @@ export function TasksView() {
                   }`}
                 >
                   {isEditingStock ? (
-                    // 🎯 수량 직접 편집 모드
                     <div className="space-y-2.5 text-xs">
                       <div className="flex items-center justify-between gap-1">
                         <label 
@@ -715,7 +776,6 @@ export function TasksView() {
                       </div>
                     </div>
                   ) : (
-                    // 기본 뷰
                     <div className="space-y-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">

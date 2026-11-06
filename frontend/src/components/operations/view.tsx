@@ -33,27 +33,35 @@ const MENU_DATA = {
 
 type ChartData = { time: string; sales: number; hour: number }
 
+// 🎯 초기 마운트 시 깜빡임 방지용 로더 함수
+const getInitialStoreId = (): string => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('localmate_store_id') || 'cafe'
+  }
+  return 'cafe'
+}
+
+const getInitialChartData = (storeId: string): ChartData[] => {
+  if (typeof window !== 'undefined') {
+    const savedData = localStorage.getItem(`localmate_chart_${storeId}`)
+    if (savedData) {
+      try {
+        return JSON.parse(savedData)
+      } catch (e) {
+        return []
+      }
+    }
+  }
+  return []
+}
+
 export function OperationsView() {
-  const [selectedStoreId, setSelectedStoreId] = useState('cafe')
-  const [chartData, setChartData] = useState<ChartData[]>([])
+  // 1. 초기 렌더링부터 localStorage의 저장된 지점 정보를 즉시 주입 (깜빡임 차단)
+  const [selectedStoreId, setSelectedStoreId] = useState<string>(getInitialStoreId)
+  const [chartData, setChartData] = useState<ChartData[]>(() => getInitialChartData(getInitialStoreId()))
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    const savedStore = localStorage.getItem('localmate_store_id')
-    if (savedStore) setSelectedStoreId(savedStore)
-
-    const handleSync = (e: Event) => {
-      const customEvent = e as CustomEvent<string>
-      if (customEvent.detail) setSelectedStoreId(customEvent.detail)
-    }
-    window.addEventListener('storeChange', handleSync)
-
-    loadChartData(savedStore || 'cafe')
-
-    return () => window.removeEventListener('storeChange', handleSync)
-  }, [selectedStoreId])
 
   const loadChartData = (storeId: string) => {
     const savedData = localStorage.getItem(`localmate_chart_${storeId}`)
@@ -69,6 +77,34 @@ export function OperationsView() {
     }
     setUploadStatus('idle')
   }
+
+  useEffect(() => {
+    const savedStore = localStorage.getItem('localmate_store_id') || 'cafe'
+    setSelectedStoreId(savedStore)
+    loadChartData(savedStore)
+
+    const handleSync = (e: Event) => {
+      const customEvent = e as CustomEvent<string>
+      if (customEvent.detail) {
+        setSelectedStoreId(customEvent.detail)
+        loadChartData(customEvent.detail)
+      }
+    }
+
+    const handleStorage = () => {
+      const current = localStorage.getItem('localmate_store_id') || 'cafe'
+      setSelectedStoreId(current)
+      loadChartData(current)
+    }
+
+    window.addEventListener('storeChange', handleSync)
+    window.addEventListener('storage', handleStorage)
+
+    return () => {
+      window.removeEventListener('storeChange', handleSync)
+      window.removeEventListener('storage', handleStorage)
+    }
+  }, [])
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -185,7 +221,7 @@ export function OperationsView() {
               </button>
             )}
             
-            {/* ✅ 범례(Legend) 추가 영역 */}
+            {/* 범례(Legend) 영역 */}
             {chartData.length > 0 && (
               <div className="flex items-center gap-3 text-xs text-slate-500 bg-slate-50 px-3 py-1.5 rounded-md border border-slate-100">
                 <div className="flex items-center gap-1.5">
@@ -282,10 +318,10 @@ export function OperationsView() {
         
         <input 
           type="file" 
-          accept=".csv"
-          ref={fileInputRef}
-          onChange={handleFileUpload}
-          className="hidden"
+          accept=".csv" 
+          ref={fileInputRef} 
+          onChange={handleFileUpload} 
+          className="hidden" 
         />
 
         <div 
@@ -322,3 +358,5 @@ function BarChartIcon(props: React.SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+export default OperationsView
