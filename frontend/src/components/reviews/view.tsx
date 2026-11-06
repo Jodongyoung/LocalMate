@@ -40,7 +40,6 @@ const CAFE_PHOTOS = [
   'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=500&auto=format&fit=crop&q=80'
 ]
 
-// 기본 6건 치킨 정예 데이터
 const DEFAULT_CHICKEN_REVIEWS: any[] = [
   {
     id: 'chk-def-1',
@@ -119,7 +118,6 @@ const DEFAULT_CHICKEN_REVIEWS: any[] = [
   }
 ]
 
-// 기본 6건 카페 정예 데이터
 const DEFAULT_CAFE_REVIEWS: any[] = [
   {
     id: 'cafe-def-1',
@@ -203,6 +201,46 @@ const MOCK_CUSTOMERS = [
   '라떼파', '배고픈다람쥐', '대구맛집헌터', '바삭킹', '커피향기'
 ]
 
+// 🎯 가상 리뷰 생성 시 긍정 / 일반 / 불만 각각의 템플릿 풀
+const MOCK_REVIEW_TEMPLATES = {
+  positive: {
+    cafe: [
+      { text: '크로플 겉바속촉 제대로네요! 라떼 원두 향도 깊고 부드러워서 기분 좋게 충전 완료했습니다 :)', menu: '시그니처 바닐라빈 라떼, 크로플', tags: ['긍정', '추천', '디저트맛집'] },
+      { text: '원두 향이 정말 향긋하고 산미 밸런스가 최고예요. 매일 아침 여기서 시킵니다!', menu: '아메리카노 (ICED) 2잔', tags: ['긍정', '커피맛집', '단골'] },
+      { text: '디저트 포장도 너무 깔끔하고 음료 안 흘리게 꼼꼼히 보내주셔서 감동했습니다.', menu: '생딸기 조각케이크 + 콜드브루', tags: ['긍정', '포장꼼꼼', '추천'] }
+    ],
+    chicken: [
+      { text: '오늘따라 튀김옷이 진짜 바삭하고 속은 촉촉해서 아이들이 순식간에 다 먹었어요!', menu: '황금 후라이드 치킨 + 치즈볼', tags: ['긍정', '추천', '바삭함'] },
+      { text: '양념 치킨 소스가 과하게 달지 않고 감칠맛 폭발이네요. 맥주 안주로 최고입니다.', menu: '매콤달콤 양념 치킨', tags: ['긍정', '맛있음', '치맥'] },
+      { text: '닭다리 살이 정말 실하고 부드러워요. 치즈볼도 치즈 꽉 차서 대만족입니다!', menu: '반반 치킨 + 특제 모짜렐라 치즈볼', tags: ['긍정', '육즙가득', '사이드최고'] }
+    ]
+  },
+  neutral: {
+    cafe: [
+      { text: '커피 맛은 무난하고 괜찮은데 얼음이 조금 빨리 녹은 것 같아요. 그래도 잘 마셨습니다.', menu: '아이스 카페라떼', tags: ['일반', '무난함'] },
+      { text: '배달 시간은 보통이었고 빵도 무난했어요. 가성비는 평범한 편입니다.', menu: '플레인 크로플 + 아메리카노', tags: ['일반', '가성비보통'] },
+      { text: '음료 맛은 깔끔합니다. 다만 빨대가 하나 덜 왔는데 다음엔 챙겨주세요.', menu: '얼그레이 레몬티 2잔', tags: ['일반', '개선요청'] }
+    ],
+    chicken: [
+      { text: '무난하게 잘 먹었습니다. 기름 냄새 안 나고 평범하게 괜찮은 치킨이에요.', menu: '황금 후라이드 치킨', tags: ['일반', '무난함'] },
+      { text: '배달 속도는 적당했고 맛도 나쁘지 않았어요. 소스 양이 조금만 더 많았으면 좋겠네요.', menu: '순살 간장 치킨', tags: ['일반', '개선요청'] },
+      { text: '치킨은 맛있었는데 요청사항에 무 많이 달라고 적은 게 누락되었네요. 확인 부탁드립니다.', menu: '반반 치킨 1마리', tags: ['일반', '요청사항누락'] }
+    ]
+  },
+  negative: {
+    cafe: [
+      { text: '따뜻한 라떼를 시켰는데 다 식어서 미지근하게 왔어요. 뚜껑도 살짝 열려서 비닐에 샜네요.', menu: '카페라떼 (HOT)', tags: ['식음', '포장불만', '불만'] },
+      { text: '예상 시간보다 35분이나 늦게 와서 점심시간 다 끝나고 마셨습니다. 안내도 없어서 답답했네요.', menu: '아메리카노 3잔', tags: ['배달지연', '불만'] },
+      { text: '가격에 비해 양이 너무 적고 빵이 너무 딱딱하게 굳어있어서 아쉬웠습니다.', menu: '수제 에그타르트 세트', tags: ['양적다', '품질불만'] }
+    ],
+    chicken: [
+      { text: '비가 와서 그런지 예상 시간보다 40분이나 늦었고 치킨이 다 식어서 껍질이 눅눅했어요.', menu: '황금 후라이드 치킨', tags: ['배달지연', '식음', '불만'] },
+      { text: '치즈볼 세트를 분명 추가 결제했는데 누락되어 안 왔습니다. 전화도 안 받으시고 실망입니다.', menu: '양념 치킨 + 치즈볼 세트', tags: ['포장누락', '불만'] },
+      { text: '튀김옷에 기름이 너무 많이 배어있어서 몇 조각 못 먹고 물렸네요. 기름 관리 신경 써주세요.', menu: '순살 후라이드 치킨', tags: ['품질불만', '기름짐'] }
+    ]
+  }
+}
+
 export function getCustomerLoyaltyBadge(orderCount?: number) {
   const count = orderCount ?? 1
   if (count <= 1) {
@@ -244,7 +282,6 @@ const getInitialStoreId = (): string => {
 }
 
 export function ReviewsView() {
-  // 초기 렌더링 시점에 localStorage 값을 즉시 읽어 깜빡임 방지
   const [selectedStoreId, setSelectedStoreId] = useState<string>(getInitialStoreId)
   const [reviews, setReviews] = useState<Review[]>(() => loadReviewsFromStorage(getInitialStoreId()))
   const [filter, setFilter] = useState<'all' | 'unanswered' | 'negative'>('all')
@@ -395,40 +432,63 @@ export function ReviewsView() {
       return applyForbiddenWordsFilter(`고객님, 안녕하십니까. ${storeLabel} 점주입니다.\n저희 매장을 믿고 주문해 주셨는데 불편을 드려 진심으로 사과드립니다.\n\n${selectedDetail}\n\n다시 한번 고개 숙여 사과드립니다.`, selectedStoreId)
     }
 
-    let highlight = '사이드/디저트 메뉴를 맛있게 즐겨주셔서 정말 뿌듯합니다!'
+    let highlight = '정성껏 준비한 메뉴를 맛있게 즐겨주셔서 정말 뿌듯합니다!'
     return applyForbiddenWordsFilter(`고객님, 안녕하십니까. ${storeLabel}입니다.\n정성껏 준비한 메뉴가 큰 만족을 드린 것 같아 기쁩니다.\n${highlight}\n앞으로도 변함없는 맛으로 보답하겠습니다.`, selectedStoreId)
   }
 
+  // 🎯 일반 / 불만 / 긍정 리뷰 1:1:1 동일 확률(각 33.3%) 생성 핸들러
   const handleCreateMockReview = () => {
     const isCafe = selectedStoreId === 'cafe'
     const photoPool = isCafe ? CAFE_PHOTOS : CHICKEN_PHOTOS
     const randomCustomer = MOCK_CUSTOMERS[Math.floor(Math.random() * MOCK_CUSTOMERS.length)] + Math.floor(10 + Math.random() * 89)
-    
-    const hasPhoto = Math.random() > 0.4
-    const selectedPhoto = hasPhoto ? photoPool[Math.floor(Math.random() * photoPool.length)] : undefined
 
     const currentHour = new Date().getHours()
     const currentMin = new Date().getMinutes()
     const timeString = `오늘 ${currentHour < 12 ? '오전' : '오후'} ${currentHour % 12 || 12}:${currentMin < 10 ? '0' : ''}${currentMin}`
 
+    // 🎯 1/3 (33.3%) 확률로 유형 결정: 긍정(0) / 일반(1) / 불만(2)
+    const rand = Math.random()
+    let reviewType: 'positive' | 'neutral' | 'negative'
+    let rating: number
+    let typeLabel: string
+
+    if (rand < 0.333) {
+      reviewType = 'positive'
+      rating = 5
+      typeLabel = '긍정 리뷰'
+    } else if (rand < 0.666) {
+      reviewType = 'neutral'
+      rating = 3
+      typeLabel = '일반 리뷰'
+    } else {
+      reviewType = 'negative'
+      rating = Math.random() > 0.5 ? 2 : 1
+      typeLabel = '불만 리뷰'
+    }
+
+    const storeKey = isCafe ? 'cafe' : 'chicken'
+    const templates = MOCK_REVIEW_TEMPLATES[reviewType][storeKey]
+    const chosenTemplate = templates[Math.floor(Math.random() * templates.length)]
+
+    const hasPhoto = reviewType === 'positive' ? Math.random() > 0.3 : Math.random() > 0.6
+    const selectedPhoto = hasPhoto ? photoPool[Math.floor(Math.random() * photoPool.length)] : undefined
+
     const newReview: Review = {
       id: `mock-${Date.now()}`,
       customerId: randomCustomer,
-      rating: 5,
+      rating,
       date: timeString,
-      menu: isCafe ? '시그니처 바닐라빈 라떼, 크로플' : '황금 후라이드 치킨 + 치즈볼',
-      text: isCafe 
-        ? '크로플 겉바속촉 제대로네요! 라떼 원두 향도 깊고 부드러워서 당 충전 완료했습니다 :)'
-        : '오늘 따라 튀김옷이 진짜 바삭하고 속은 촉촉해서 아이들이 순식간에 다 먹었어요!',
-      tags: ['긍정', '추천', '바삭함'],
+      menu: chosenTemplate.menu,
+      text: chosenTemplate.text,
+      tags: chosenTemplate.tags,
       photo: selectedPhoto,
       imageUrl: selectedPhoto,
-      eventParticipant: true,
-      orderCount: Math.floor(Math.random() * 8) + 1
+      eventParticipant: reviewType === 'positive',
+      orderCount: reviewType === 'negative' ? 1 : Math.floor(Math.random() * 5) + 1
     } as any
 
     saveAndSetReviews([newReview, ...reviews])
-    setInfoMessage(`🎲 [긍정 리뷰] 가상 리뷰 생성 완료!`)
+    setInfoMessage(`🎲 [${typeLabel} (★ ${rating})] 가상 리뷰가 성공적으로 생성되었습니다!`)
     setTimeout(() => setInfoMessage(null), 3500)
   }
 
@@ -551,7 +611,6 @@ export function ReviewsView() {
     }
   }
 
-  // 매장별 플랫폼 및 색상 즉시 결정
   const currentPlatform = selectedStoreId === 'cafe' ? '배달의민족' : '쿠팡이츠'
   const currentPlatformColor = selectedStoreId === 'cafe' ? 'bg-[#2ac1bc]' : 'bg-[#00a8ec]'
 
@@ -596,6 +655,7 @@ export function ReviewsView() {
             <button
               onClick={handleCreateMockReview}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition shadow-xs"
+              title="긍정(5점), 일반(3점), 불만(1~2점) 리뷰가 동일 확률(33%)로 균등 생성됩니다"
             >
               <PlusCircle className="size-4 text-emerald-600" />
               <span>가상 리뷰 생성</span>

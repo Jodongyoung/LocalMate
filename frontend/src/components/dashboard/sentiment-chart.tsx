@@ -48,50 +48,99 @@ function ChartTooltip({
   )
 }
 
-// 🎯 첫 렌더링 깜빡임 방지를 위한 초기 감성 트렌드 로더
-const getInitialSentimentData = () => {
+const getInitialStoreId = () => {
   if (typeof window !== 'undefined') {
-    const storeId = localStorage.getItem('localmate_store_id') || 'cafe'
-    return storeId === 'cafe' ? STORE_DASHBOARD_DATA.cafe.sentimentTrend : STORE_DASHBOARD_DATA.chicken.sentimentTrend
+    return localStorage.getItem('localmate_store_id') || 'cafe'
   }
-  return STORE_DASHBOARD_DATA.cafe.sentimentTrend
+  return 'cafe'
 }
 
-export function SentimentChart() {
+// 🎯 저장된 실제 리뷰 데이터를 바탕으로 11월 수치 동적 계산
+const computeChartDataWithReviews = (storeId: string) => {
+  const base = storeId === 'cafe'
+    ? JSON.parse(JSON.stringify(STORE_DASHBOARD_DATA.cafe.sentimentTrend))
+    : JSON.parse(JSON.stringify(STORE_DASHBOARD_DATA.chicken.sentimentTrend))
+
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem(`localmate_reviews_v12_${storeId}`)
+    if (saved) {
+      try {
+        const list = JSON.parse(saved)
+        if (Array.isArray(list) && list.length > 0) {
+          const positive = list.filter((r: any) => (Number(r.rating) || 5) >= 4).length
+          const complaint = list.filter((r: any) => (Number(r.rating) || 5) <= 2).length
+          const improvement = list.filter((r: any) => (Number(r.rating) || 5) === 3).length
+
+          base[base.length - 1] = {
+            month: '11월',
+            positive,
+            complaint,
+            improvement
+          }
+        }
+      } catch (e) {}
+    }
+  }
+
+  return base
+}
+
+export function SentimentChart({ reviews: propReviews }: { reviews?: any[]; [key: string]: any }) {
   const [hidden, setHidden] = useState<SeriesKey[]>([])
-  
-  // 1. 초기 상태부터 localStorage 지점 정보를 정확히 반영하여 깜빡임 원천 차단
-  const [chartData, setChartData] = useState(getInitialSentimentData)
+  const [storeId, setStoreId] = useState(getInitialStoreId)
+  const [chartData, setChartData] = useState(() => computeChartDataWithReviews(getInitialStoreId()))
 
-  // 2. 매장 변경 이벤트(storeChange 및 storage) 감지하여 차트 데이터 실시간 연동
+  const refreshChart = (targetStore: string) => {
+    setStoreId(targetStore)
+    setChartData(computeChartDataWithReviews(targetStore))
+  }
+
   useEffect(() => {
-    const updateStoreData = (storeId: string) => {
-      const data = storeId === 'cafe' ? STORE_DASHBOARD_DATA.cafe.sentimentTrend : STORE_DASHBOARD_DATA.chicken.sentimentTrend
-      setChartData(data)
-    }
+    const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
+    refreshChart(currentStore)
 
-    const savedStore = localStorage.getItem('localmate_store_id') || 'cafe'
-    updateStoreData(savedStore)
-
-    const handleSync = (e: Event) => {
+    const handleStoreSync = (e: Event) => {
       const customEvent = e as CustomEvent<string>
-      const targetStore = customEvent.detail || localStorage.getItem('localmate_store_id') || 'cafe'
-      updateStoreData(targetStore)
+      const target = customEvent.detail || localStorage.getItem('localmate_store_id') || 'cafe'
+      refreshChart(target)
     }
 
-    const handleStorageSync = () => {
-      const targetStore = localStorage.getItem('localmate_store_id') || 'cafe'
-      updateStoreData(targetStore)
+    const handleReviewsSync = () => {
+      const target = localStorage.getItem('localmate_store_id') || 'cafe'
+      refreshChart(target)
     }
 
-    window.addEventListener('storeChange', handleSync)
-    window.addEventListener('storage', handleStorageSync)
-    
+    window.addEventListener('storeChange', handleStoreSync)
+    window.addEventListener('reviewsUpdated', handleReviewsSync)
+    window.addEventListener('storage', handleReviewsSync)
+
     return () => {
-      window.removeEventListener('storeChange', handleSync)
-      window.removeEventListener('storage', handleStorageSync)
+      window.removeEventListener('storeChange', handleStoreSync)
+      window.removeEventListener('reviewsUpdated', handleReviewsSync)
+      window.removeEventListener('storage', handleReviewsSync)
     }
   }, [])
+
+  // 부모에서 props로 reviews 배열이 전달될 경우 즉시 11월 수치 재계산
+  useEffect(() => {
+    if (propReviews && propReviews.length > 0) {
+      const base = storeId === 'cafe'
+        ? JSON.parse(JSON.stringify(STORE_DASHBOARD_DATA.cafe.sentimentTrend))
+        : JSON.parse(JSON.stringify(STORE_DASHBOARD_DATA.chicken.sentimentTrend))
+
+      const positive = propReviews.filter((r: any) => (Number(r.rating) || 5) >= 4).length
+      const complaint = propReviews.filter((r: any) => (Number(r.rating) || 5) <= 2).length
+      const improvement = propReviews.filter((r: any) => (Number(r.rating) || 5) === 3).length
+
+      base[base.length - 1] = {
+        month: '11월',
+        positive,
+        complaint,
+        improvement
+      }
+      setChartData(base)
+    }
+  }, [propReviews, storeId])
 
   const latest = chartData[chartData.length - 1] || { positive: 0, complaint: 0, improvement: 0 }
   const latestTotal = (latest.positive || 0) + (latest.complaint || 0) + (latest.improvement || 0)
@@ -101,12 +150,14 @@ export function SentimentChart() {
     setHidden((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]))
   }
 
+  const platformName = storeId === 'cafe' ? '배달의민족' : '쿠팡이츠'
+
   return (
     <div className="rounded-2xl border bg-card p-5 shadow-sm h-full flex flex-col font-sans">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-semibold text-sm">월별 리뷰 감성 분석</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">최근 6개월 · 배달의민족 리뷰 기준</p>
+          <p className="text-xs text-muted-foreground mt-0.5">최근 6개월 · {platformName} 리뷰 기준</p>
         </div>
         <div className="text-right">
           <p className="text-2xl font-bold text-primary tabular-nums">{positiveRate}%</p>

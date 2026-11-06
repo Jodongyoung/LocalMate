@@ -10,10 +10,15 @@ import { KpiCards } from './kpi-cards'
 import { SentimentChart } from './sentiment-chart'
 import { AiSummary } from './ai-summary'
 
-// 🎯 주소 문자열에서 핵심 지역명(시/도 + 구/군) 파싱 함수
+interface DynamicWeatherState {
+  badgeText: string
+  conditionText: string
+  actionAdvice: string
+  isHeatwave: boolean
+}
+
 const parseRegionName = (address: string): string => {
   if (!address || address.trim() === '') return '우리동네'
-  
   const tokens = address.trim().split(/\s+/)
   if (tokens.length >= 2) {
     const city = tokens[0].replace(/(특별시|광역시|특별자치시)/, '')
@@ -23,7 +28,6 @@ const parseRegionName = (address: string): string => {
   return tokens[0]
 }
 
-// 🎯 초기 로딩 시 localStorage에서 현재 매장 ID를 곧바로 읽어오는 헬퍼
 const getInitialStoreId = () => {
   if (typeof window !== 'undefined') {
     return localStorage.getItem('localmate_store_id') || 'cafe'
@@ -31,8 +35,19 @@ const getInitialStoreId = () => {
   return 'cafe'
 }
 
-// 🎯 초기 로딩 시 해당 매장의 주소를 즉시 반영하여 날씨 객체 생성 (깜빡임 원천 차단)
-const getInitialDynamicWeather = (storeId: string) => {
+const loadStoredReviews = (storeId: string): Review[] => {
+  if (typeof window === 'undefined') return initialReviews
+  const saved = localStorage.getItem(`localmate_reviews_v12_${storeId}`)
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+    } catch (e) {}
+  }
+  return initialReviews
+}
+
+const getInitialDynamicWeather = (storeId: string): DynamicWeatherState => {
   const baseScenario = getCurrentWeatherScenario(storeId)
   const savedSettings = typeof window !== 'undefined' ? localStorage.getItem(`localmate_settings_${storeId}`) : null
   let address = storeId === 'cafe' ? '대구광역시 중구 동성로 123' : '부산광역시 남구 대연동 45'
@@ -40,51 +55,36 @@ const getInitialDynamicWeather = (storeId: string) => {
   if (savedSettings) {
     try {
       const parsed = JSON.parse(savedSettings)
-      if (parsed.address) {
-        address = parsed.address
-      }
+      if (parsed.address) address = parsed.address
     } catch (e) {}
   }
 
   const region = parseRegionName(address)
   const isHeatwave = baseScenario.badgeText.includes('폭염') || storeId === 'chicken'
 
-  if (isHeatwave) {
-    return {
-      badgeText: '폭염 경보',
-      conditionText: `${region} 기온 34℃ 폭염 경보 발령`,
-      actionAdvice: '무더운 날씨로 시원한 생맥주와 야식 배달 주문이 급증합니다. 냉장고 재고를 확보하세요.',
-      isHeatwave: true
-    }
-  } else {
-    return {
-      badgeText: '잔잔한 비',
-      conditionText: `${region} 잔잔한 비 (강수 확률 70%)`,
-      actionAdvice: '매장 내 체류 시간이 길어집니다. 따뜻한 드립 커피와 디저트 세트를 추천하세요.',
-      isHeatwave: false
-    }
+  return {
+    badgeText: isHeatwave ? '폭염 경보' : '잔잔한 비',
+    conditionText: isHeatwave ? `${region} 기온 34℃ 폭염 경보 발령` : `${region} 잔잔한 비 (강수 확률 70%)`,
+    actionAdvice: isHeatwave 
+      ? '무더운 날씨로 시원한 생맥주와 야식 배달 주문이 급증합니다. 냉장고 재고를 확보하세요.' 
+      : '매장 내 체류 시간이 길어집니다. 따뜻한 드립 커피와 디저트 세트를 추천하세요.',
+    isHeatwave
   }
 }
 
 export function DashboardView({ onLogout = () => {} }: { onLogout?: () => void }) {
-  const [reviews, setReviews] = useState<Review[]>(initialReviews)
-  const [drafts, setDrafts] = useState<Record<string, string>>({})
-  
-  // 🎯 초기 상태값을 함수로 지정하여 첫 렌더링부터 올바른 매장 및 주소 반영
   const [storeId, setStoreId] = useState(getInitialStoreId)
+  const [reviews, setReviews] = useState<Review[]>(() => loadStoredReviews(getInitialStoreId()))
+  const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [weatherInfo, setWeatherInfo] = useState<WeatherCondition>(() => getCurrentWeatherScenario(getInitialStoreId()))
-  const [dynamicWeather, setDynamicWeather] = useState(() => getInitialDynamicWeather(getInitialStoreId()))
-
-  // 🎯 승인 대기 건수 및 대표 제안 내용 동적 상태 (0건이면 배너 숨김)
+  const [dynamicWeather, setDynamicWeather] = useState<DynamicWeatherState>(() => getInitialDynamicWeather(getInitialStoreId()))
   const [pendingTasks, setPendingTasks] = useState<{ count: number; firstTitle?: string }>({ count: 0 })
 
   const reviewsRef = useRef(reviews)
-
   useEffect(() => {
     reviewsRef.current = reviews
   }, [reviews])
 
-  // 승인 대기 건수 동기화 함수
   const syncPendingTasks = (currentStore: string) => {
     const saved = localStorage.getItem(`localmate_proposals_v5_${currentStore}`)
     if (saved) {
@@ -98,27 +98,20 @@ export function DashboardView({ onLogout = () => {} }: { onLogout?: () => void }
         return
       } catch (e) {}
     }
-
-    // fallback
     const globalCount = localStorage.getItem('localmate_pending_tasks_count')
     const count = globalCount !== null ? Number(globalCount) : 0
     setPendingTasks({ count, firstTitle: undefined })
   }
 
-  // 🎯 매장 설정 주소를 반영하여 날씨 및 브리핑 텍스트 동적 생성 함수
   const updateWeatherWithSettings = (currentStore: string) => {
     const baseScenario = getCurrentWeatherScenario(currentStore)
-    
-    // 매장 설정에서 커스텀 주소 불러오기
     const savedSettings = localStorage.getItem(`localmate_settings_${currentStore}`)
     let address = currentStore === 'cafe' ? '대구광역시 중구 동성로 123' : '부산광역시 남구 대연동 45'
     
     if (savedSettings) {
       try {
         const parsed = JSON.parse(savedSettings)
-        if (parsed.address) {
-          address = parsed.address
-        }
+        if (parsed.address) address = parsed.address
       } catch (e) {}
     }
 
@@ -129,18 +122,24 @@ export function DashboardView({ onLogout = () => {} }: { onLogout?: () => void }
       setDynamicWeather({
         badgeText: '폭염 경보',
         conditionText: `${region} 기온 34℃ 폭염 경보 발령`,
-        actionAdvice: '무더운 날씨로 시원한 생맥주와 야식 배달 주문이 급증합니다. 냉장고 재고를 확보하세요.'
+        actionAdvice: '무더운 날씨로 시원한 생맥주와 야식 배달 주문이 급증합니다. 냉장고 재고를 확보하세요.',
+        isHeatwave: true
       })
     } else {
       setDynamicWeather({
         badgeText: '잔잔한 비',
         conditionText: `${region} 잔잔한 비 (강수 확률 70%)`,
-        actionAdvice: '매장 내 체류 시간이 길어집니다. 따뜻한 드립 커피와 디저트 세트를 추천하세요.'
+        actionAdvice: '매장 내 체류 시간이 길어집니다. 따뜻한 드립 커피와 디저트 세트를 추천하세요.',
+        isHeatwave: false
       })
     }
   }
 
-  // 지점 동기화, 설정 변경(주소 수정), 날씨 및 승인 대기 상태 실시간 체크
+  const syncReviewsData = (currentStore: string) => {
+    const currentReviews = loadStoredReviews(currentStore)
+    setReviews(currentReviews)
+  }
+
   useEffect(() => {
     const updateDashboard = () => {
       const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
@@ -148,6 +147,7 @@ export function DashboardView({ onLogout = () => {} }: { onLogout?: () => void }
       setWeatherInfo(getCurrentWeatherScenario(currentStore))
       updateWeatherWithSettings(currentStore)
       syncPendingTasks(currentStore)
+      syncReviewsData(currentStore)
     }
 
     updateDashboard()
@@ -159,19 +159,25 @@ export function DashboardView({ onLogout = () => {} }: { onLogout?: () => void }
       setWeatherInfo(getCurrentWeatherScenario(targetStore))
       updateWeatherWithSettings(targetStore)
       syncPendingTasks(targetStore)
+      syncReviewsData(targetStore)
+    }
+
+    const handleReviewsUpdated = () => {
+      const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
+      syncReviewsData(currentStore)
     }
 
     const handleSettingsSync = () => {
       updateDashboard()
     }
 
-    // 🎯 TasksView에서 승인/보류 시 실시간으로 대시보드 배너 상태 업데이트
     const handlePendingUpdated = () => {
       const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
       syncPendingTasks(currentStore)
     }
 
     window.addEventListener('storeChange', handleStoreSync)
+    window.addEventListener('reviewsUpdated', handleReviewsUpdated)
     window.addEventListener('settingsChange', handleSettingsSync)
     window.addEventListener('pendingTasksUpdated', handlePendingUpdated)
     window.addEventListener('storage', handleSettingsSync)
@@ -179,6 +185,7 @@ export function DashboardView({ onLogout = () => {} }: { onLogout?: () => void }
 
     return () => {
       window.removeEventListener('storeChange', handleStoreSync)
+      window.removeEventListener('reviewsUpdated', handleReviewsUpdated)
       window.removeEventListener('settingsChange', handleSettingsSync)
       window.removeEventListener('pendingTasksUpdated', handlePendingUpdated)
       window.removeEventListener('storage', handleSettingsSync)
@@ -188,56 +195,8 @@ export function DashboardView({ onLogout = () => {} }: { onLogout?: () => void }
 
   const unansweredCount = reviews.filter((r) => !r.reply).length
 
-  function generateDraft(id: string) {
-    const review = reviews.find((r) => r.id === id)
-    if (!review) return
-    setDrafts((prev) => ({ ...prev, [id]: generateReplyDraft(review) }))
-  }
-
-  function generateAllDrafts(): Review[] {
-    const targets = reviewsRef.current.filter((r) => !r.reply)
-    setDrafts((prev) => {
-      const next = { ...prev }
-      for (const r of targets) {
-        if (next[r.id] === undefined) next[r.id] = generateReplyDraft(r)
-      }
-      return next
-    })
-    return targets
-  }
-
-  function updateDraft(id: string, value: string) {
-    setDrafts((prev) => ({ ...prev, [id]: value }))
-  }
-
-  function cancelDraft(id: string) {
-    setDrafts((prev) => {
-      const next = { ...prev }
-      delete next[id]
-      return next
-    })
-  }
-
-  function saveReply(id: string) {
-    const text = drafts[id]?.trim()
-    if (!text) return
-    setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, reply: text } : r)))
-    cancelDraft(id)
-  }
-
-  function editReply(id: string) {
-    const review = reviews.find((r) => r.id === id)
-    if (!review?.reply) return
-    setDrafts((prev) => ({ ...prev, [id]: review.reply as string }))
-  }
-
-  function deleteReply(id: string) {
-    setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, reply: undefined } : r)))
-    cancelDraft(id)
-  }
-
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background font-sans">
       <DashboardHeader onLogout={onLogout || (() => {})} unansweredCount={unansweredCount} />
 
       <main className="mx-auto max-w-7xl px-4 md:px-6 py-6 flex flex-col gap-6 pb-28">
@@ -247,7 +206,6 @@ export function DashboardView({ onLogout = () => {} }: { onLogout?: () => void }
             <h1 className="mt-1 text-2xl md:text-3xl font-bold tracking-tight text-balance">
               사장님, 오늘도 좋은 하루 보내세요!
             </h1>
-            {/* 🎯 매장 설정 주소 연동 결과 반영 */}
             <p className="mt-2 text-sm text-muted-foreground leading-relaxed text-pretty">
               <span className="font-semibold text-primary mr-1.5">[{dynamicWeather.badgeText}]</span>
               {dynamicWeather.conditionText}. {dynamicWeather.actionAdvice}
@@ -256,18 +214,19 @@ export function DashboardView({ onLogout = () => {} }: { onLogout?: () => void }
           <SalesTargetCard />
         </section>
 
-        <KpiCards {...({ unansweredCount } as any)} />
+        {/* 🎯 KpiCards에 타입 에러 없이 전달 */}
+        <KpiCards {...({ unansweredCount, reviews } as any)} />
 
         <section className="grid lg:grid-cols-5 gap-4 md:gap-6">
           <div className="lg:col-span-3">
-            <SentimentChart />
+            {/* 🎯 SentimentChart에 타입 에러 없이 전달 */}
+            <SentimentChart {...({ reviews } as any)} />
           </div>
           <div className="lg:col-span-2">
             <AiSummary />
           </div>
         </section>
 
-        {/* 🎯 승인 대기 알림 배너 */}
         {pendingTasks.count > 0 && (
           <div className="rounded-2xl border bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200 p-5 shadow-sm animate-in fade-in">
             <div className="flex items-start gap-3">

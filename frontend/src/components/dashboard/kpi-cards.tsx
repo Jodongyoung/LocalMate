@@ -1,151 +1,132 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { CalendarDays, Gift, MessageCircleWarning, TrendingUp, Wallet } from 'lucide-react'
-import { formatKRW, STORE_DASHBOARD_DATA, CAFE_REVIEWS, CHICKEN_REVIEWS, type Review } from '@/lib/mock-data'
-import { cn } from '@/lib/utils'
+import { Wallet, Calendar, Gift, AlertCircle } from 'lucide-react'
 
-function getLiveUnansweredCount(storeId: string): number {
-  if (typeof window === 'undefined') return 5
-  const keys = [
-    `localmate_reviews_v10_${storeId}`,
-    `localmate_reviews_v11_${storeId}`,
-    `localmate_reviews_v12_${storeId}`,
-    `localmate_reviews_${storeId}`
-  ]
-
-  for (const key of keys) {
-    const saved = localStorage.getItem(key)
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.filter((r: any) => !r.reply).length
-        }
-      } catch (e) {}
-    }
+const getInitialStoreId = (): string => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('localmate_store_id') || 'cafe'
   }
-
-  const defaultList = storeId === 'chicken' ? CHICKEN_REVIEWS : CAFE_REVIEWS
-  return defaultList.filter((r: any) => !r.reply).length
+  return 'cafe'
 }
 
-export function KpiCards() {
-  const getInitialStore = () => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('localmate_store_id') || 'cafe'
-    }
-    return 'cafe'
+const getReviewStatsFromStorage = (storeId: string) => {
+  if (typeof window === 'undefined') {
+    return { unanswered: 4, eventCount: 24 }
+  }
+  const saved = localStorage.getItem(`localmate_reviews_v12_${storeId}`)
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed)) {
+        const unanswered = parsed.filter((r: any) => !r.reply).length
+        const eventCount = parsed.filter((r: any) => r.eventParticipant).length
+        return { unanswered, eventCount }
+      }
+    } catch (e) {}
+  }
+  return storeId === 'chicken' 
+    ? { unanswered: 5, eventCount: 32 } 
+    : { unanswered: 4, eventCount: 24 }
+}
+
+export function KpiCards({ unansweredCount: propUnanswered }: { unansweredCount?: number; [key: string]: any }) {
+  const [storeId, setStoreId] = useState(getInitialStoreId)
+  const [stats, setStats] = useState(() => getReviewStatsFromStorage(getInitialStoreId()))
+
+  const updateStats = (targetStore: string) => {
+    setStoreId(targetStore)
+    setStats(getReviewStatsFromStorage(targetStore))
   }
 
-  const [kpis, setKpis] = useState(() => {
-    const s = getInitialStore()
-    return s === 'chicken' ? STORE_DASHBOARD_DATA.chicken.kpis : STORE_DASHBOARD_DATA.cafe.kpis
-  })
-  
-  // 🎯 첫 마운트 시점부터 5건으로 즉시 계산
-  const [unansweredCount, setUnansweredCount] = useState(() => getLiveUnansweredCount(getInitialStore()))
-
   useEffect(() => {
-    const updateStoreData = (storeId: string) => {
-      if (storeId === 'chicken') {
-        setKpis(STORE_DASHBOARD_DATA.chicken.kpis)
-      } else {
-        setKpis(STORE_DASHBOARD_DATA.cafe.kpis)
-      }
-      setUnansweredCount(getLiveUnansweredCount(storeId))
-    }
-
-    const savedStore = localStorage.getItem('localmate_store_id') || 'cafe'
-    updateStoreData(savedStore)
+    const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
+    updateStats(currentStore)
 
     const handleStoreSync = (e: Event) => {
       const customEvent = e as CustomEvent<string>
-      if (customEvent.detail) {
-        updateStoreData(customEvent.detail)
-      }
+      const target = customEvent.detail || localStorage.getItem('localmate_store_id') || 'cafe'
+      updateStats(target)
     }
 
-    const handleReviewSync = () => {
-      const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
-      setUnansweredCount(getLiveUnansweredCount(currentStore))
+    const handleReviewsSync = () => {
+      const target = localStorage.getItem('localmate_store_id') || 'cafe'
+      updateStats(target)
     }
 
     window.addEventListener('storeChange', handleStoreSync)
-    window.addEventListener('reviewsUpdated', handleReviewSync)
+    window.addEventListener('reviewsUpdated', handleReviewsSync)
+    window.addEventListener('storage', handleReviewsSync)
 
     return () => {
       window.removeEventListener('storeChange', handleStoreSync)
-      window.removeEventListener('reviewsUpdated', handleReviewSync)
+      window.removeEventListener('reviewsUpdated', handleReviewsSync)
+      window.removeEventListener('storage', handleReviewsSync)
     }
   }, [])
 
-  const items = [
-    {
-      label: '오늘 매출',
-      value: formatKRW(kpis.todaySales),
-      sub: `어제 대비 +${kpis.todayDelta}%`,
-      icon: Wallet,
-      positive: true,
-    },
-    {
-      label: '이번 달 누적 매출',
-      value: formatKRW(kpis.monthlySales),
-      sub: `전월 동기 대비 +${kpis.monthlyDelta}%`,
-      icon: CalendarDays,
-      positive: true,
-    },
-    {
-      label: '배민 리뷰 이벤트 참여',
-      value: `${kpis.reviewEventCount}건`,
-      sub: `이번 주 +${kpis.reviewEventDelta}건`,
-      icon: Gift,
-      positive: true,
-    },
-    {
-      label: '미답변 리뷰',
-      value: `${unansweredCount}건`,
-      sub: unansweredCount > 0 ? '24시간 내 답변 권장' : '모든 리뷰에 답변 완료',
-      icon: MessageCircleWarning,
-      positive: unansweredCount === 0,
-      alert: unansweredCount > 0,
-    },
-  ]
+  // prop이 직접 넘어올 경우 우선 반영
+  const displayUnanswered = typeof propUnanswered === 'number' ? propUnanswered : stats.unanswered
+
+  const isCafe = storeId === 'cafe'
+  const todaySales = isCafe ? '980,000' : '1,284,000'
+  const monthSales = isCafe ? '15,200,000' : '18,500,000'
+  const platformLabel = isCafe ? '배민' : '쿠팡이츠'
 
   return (
-    <section aria-label="주요 지표" className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-      {items.map((item) => (
-        <div
-          key={item.label}
-          className={cn(
-            'rounded-2xl border bg-card p-4 md:p-5 shadow-sm transition hover:shadow-md',
-            item.alert && 'border-destructive/30'
-          )}
-        >
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs md:text-sm text-muted-foreground font-medium">{item.label}</p>
-            <div
-              className={cn(
-                'size-8 rounded-lg flex items-center justify-center shrink-0',
-                item.alert ? 'bg-destructive/10 text-destructive' : 'bg-secondary text-secondary-foreground'
-              )}
-            >
-              <item.icon className="size-4" aria-hidden="true" />
-            </div>
-          </div>
-          <p className="mt-3 text-lg md:text-2xl font-bold tracking-tight tabular-nums">{item.value}</p>
-          <p
-            className={cn(
-              'mt-1 text-xs flex items-center gap-1',
-              item.alert ? 'text-destructive' : 'text-success'
-            )}
-          >
-            {item.positive && !item.alert && <TrendingUp className="size-3" aria-hidden="true" />}
-            {item.sub}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 font-sans">
+      {/* 1. 오늘 매출 */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-slate-500">오늘 매출</p>
+          <p className="text-2xl font-bold tracking-tight text-slate-900">{todaySales}</p>
+          <p className="text-xs font-semibold text-emerald-600">↗ 어제 대비 {isCafe ? '+8.5%' : '+12.4%'}</p>
+        </div>
+        <div className="size-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+          <Wallet className="size-5" />
+        </div>
+      </div>
+
+      {/* 2. 이번 달 누적 매출 */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-slate-500">이번 달 누적 매출</p>
+          <p className="text-2xl font-bold tracking-tight text-slate-900">{monthSales}</p>
+          <p className="text-xs font-semibold text-emerald-600">↗ 전월 동기 대비 {isCafe ? '+6.2%' : '+8.1%'}</p>
+        </div>
+        <div className="size-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+          <Calendar className="size-5" />
+        </div>
+      </div>
+
+      {/* 3. 리뷰 이벤트 참여 */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-slate-500">{platformLabel} 리뷰 이벤트 참여</p>
+          <p className="text-2xl font-bold tracking-tight text-slate-900">{stats.eventCount}건</p>
+          <p className="text-xs font-semibold text-emerald-600">↗ 이번 주 +{isCafe ? '5건' : '8건'}</p>
+        </div>
+        <div className="size-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+          <Gift className="size-5" />
+        </div>
+      </div>
+
+      {/* 4. 미답변 리뷰 (실시간 반영) */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-slate-500">미답변 리뷰</p>
+          <p className={`text-2xl font-bold tracking-tight ${displayUnanswered > 0 ? 'text-rose-600' : 'text-slate-900'}`}>
+            {displayUnanswered}건
+          </p>
+          <p className={`text-xs font-semibold ${displayUnanswered > 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
+            {displayUnanswered > 0 ? '24시간 내 답변 권장' : '✓ 모든 리뷰에 답변 완료'}
           </p>
         </div>
-      ))}
-    </section>
+        <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${displayUnanswered > 0 ? 'bg-rose-50 text-rose-500' : 'bg-emerald-50 text-emerald-600'}`}>
+          <AlertCircle className="size-5" />
+        </div>
+      </div>
+    </div>
   )
 }
 
