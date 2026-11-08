@@ -10,22 +10,11 @@ import { KpiCards } from './kpi-cards'
 import { SentimentChart } from './sentiment-chart'
 import { AiSummary } from './ai-summary'
 
-interface DynamicWeatherState {
+export interface DynamicWeatherState {
   badgeText: string
   conditionText: string
   actionAdvice: string
   isHeatwave: boolean
-}
-
-const parseRegionName = (address: string): string => {
-  if (!address || address.trim() === '') return '우리동네'
-  const tokens = address.trim().split(/\s+/)
-  if (tokens.length >= 2) {
-    const city = tokens[0].replace(/(특별시|광역시|특별자치시)/, '')
-    const district = tokens[1]
-    return `${city} ${district}`
-  }
-  return tokens[0]
 }
 
 const getInitialStoreId = () => {
@@ -49,25 +38,12 @@ const loadStoredReviews = (storeId: string): Review[] => {
 
 const getInitialDynamicWeather = (storeId: string): DynamicWeatherState => {
   const baseScenario = getCurrentWeatherScenario(storeId)
-  const savedSettings = typeof window !== 'undefined' ? localStorage.getItem(`localmate_settings_${storeId}`) : null
-  let address = storeId === 'cafe' ? '대구광역시 중구 동성로 123' : '부산광역시 남구 대연동 45'
-  
-  if (savedSettings) {
-    try {
-      const parsed = JSON.parse(savedSettings)
-      if (parsed.address) address = parsed.address
-    } catch (e) {}
-  }
-
-  const region = parseRegionName(address)
-  const isHeatwave = baseScenario.badgeText.includes('폭염') || storeId === 'chicken'
+  const isHeatwave = baseScenario.weather === 'heat' || baseScenario.badgeText.includes('폭염')
 
   return {
-    badgeText: isHeatwave ? '폭염 경보' : '잔잔한 비',
-    conditionText: isHeatwave ? `${region} 기온 34℃ 폭염 경보 발령` : `${region} 잔잔한 비 (강수 확률 70%)`,
-    actionAdvice: isHeatwave 
-      ? '무더운 날씨로 시원한 생맥주와 야식 배달 주문이 급증합니다. 냉장고 재고를 확보하세요.' 
-      : '매장 내 체류 시간이 길어집니다. 따뜻한 드립 커피와 디저트 세트를 추천하세요.',
+    badgeText: baseScenario.badgeText,
+    conditionText: baseScenario.conditionText,
+    actionAdvice: baseScenario.actionAdvice,
     isHeatwave
   }
 }
@@ -105,34 +81,14 @@ export function DashboardView({ onLogout = () => {} }: { onLogout?: () => void }
 
   const updateWeatherWithSettings = (currentStore: string) => {
     const baseScenario = getCurrentWeatherScenario(currentStore)
-    const savedSettings = localStorage.getItem(`localmate_settings_${currentStore}`)
-    let address = currentStore === 'cafe' ? '대구광역시 중구 동성로 123' : '부산광역시 남구 대연동 45'
-    
-    if (savedSettings) {
-      try {
-        const parsed = JSON.parse(savedSettings)
-        if (parsed.address) address = parsed.address
-      } catch (e) {}
-    }
+    const isHeatwave = baseScenario.weather === 'heat' || baseScenario.badgeText.includes('폭염')
 
-    const region = parseRegionName(address)
-    const isHeatwave = baseScenario.badgeText.includes('폭염') || currentStore === 'chicken'
-
-    if (isHeatwave) {
-      setDynamicWeather({
-        badgeText: '폭염 경보',
-        conditionText: `${region} 기온 34℃ 폭염 경보 발령`,
-        actionAdvice: '무더운 날씨로 시원한 생맥주와 야식 배달 주문이 급증합니다. 냉장고 재고를 확보하세요.',
-        isHeatwave: true
-      })
-    } else {
-      setDynamicWeather({
-        badgeText: '잔잔한 비',
-        conditionText: `${region} 잔잔한 비 (강수 확률 70%)`,
-        actionAdvice: '매장 내 체류 시간이 길어집니다. 따뜻한 드립 커피와 디저트 세트를 추천하세요.',
-        isHeatwave: false
-      })
-    }
+    setDynamicWeather({
+      badgeText: baseScenario.badgeText,
+      conditionText: baseScenario.conditionText,
+      actionAdvice: baseScenario.actionAdvice,
+      isHeatwave
+    })
   }
 
   const syncReviewsData = (currentStore: string) => {
@@ -162,6 +118,10 @@ export function DashboardView({ onLogout = () => {} }: { onLogout?: () => void }
       syncReviewsData(targetStore)
     }
 
+    const handleWeatherSync = () => {
+      updateDashboard()
+    }
+
     const handleReviewsUpdated = () => {
       const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
       syncReviewsData(currentStore)
@@ -177,6 +137,7 @@ export function DashboardView({ onLogout = () => {} }: { onLogout?: () => void }
     }
 
     window.addEventListener('storeChange', handleStoreSync)
+    window.addEventListener('weatherChange', handleWeatherSync)
     window.addEventListener('reviewsUpdated', handleReviewsUpdated)
     window.addEventListener('settingsChange', handleSettingsSync)
     window.addEventListener('pendingTasksUpdated', handlePendingUpdated)
@@ -185,6 +146,7 @@ export function DashboardView({ onLogout = () => {} }: { onLogout?: () => void }
 
     return () => {
       window.removeEventListener('storeChange', handleStoreSync)
+      window.removeEventListener('weatherChange', handleWeatherSync)
       window.removeEventListener('reviewsUpdated', handleReviewsUpdated)
       window.removeEventListener('settingsChange', handleSettingsSync)
       window.removeEventListener('pendingTasksUpdated', handlePendingUpdated)
@@ -207,19 +169,19 @@ export function DashboardView({ onLogout = () => {} }: { onLogout?: () => void }
               사장님, 오늘도 좋은 하루 보내세요!
             </h1>
             <p className="mt-2 text-sm text-muted-foreground leading-relaxed text-pretty">
-              <span className="font-semibold text-primary mr-1.5">[{dynamicWeather.badgeText}]</span>
+              <span className={`font-semibold mr-1.5 ${dynamicWeather.isHeatwave ? 'text-amber-600' : 'text-blue-600'}`}>
+                [{dynamicWeather.badgeText}]
+              </span>
               {dynamicWeather.conditionText}. {dynamicWeather.actionAdvice}
             </p>
           </div>
           <SalesTargetCard />
         </section>
 
-        {/* 🎯 KpiCards에 타입 에러 없이 전달 */}
         <KpiCards {...({ unansweredCount, reviews } as any)} />
 
         <section className="grid lg:grid-cols-5 gap-4 md:gap-6">
           <div className="lg:col-span-3">
-            {/* 🎯 SentimentChart에 타입 에러 없이 전달 */}
             <SentimentChart {...({ reviews } as any)} />
           </div>
           <div className="lg:col-span-2">

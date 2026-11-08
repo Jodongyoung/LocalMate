@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { ReviewCard } from '@/components/reviews/card'
 import { type Review } from '@/lib/mock-data'
+import { processStoreOrder } from '@/lib/recipe-data'
 
 const FORBIDDEN_REPLACEMENTS: Record<string, string> = {
   '비싸다': '가격 대비 아쉬우셨던 부분',
@@ -197,7 +198,6 @@ const DEFAULT_CAFE_REVIEWS: any[] = [
   }
 ]
 
-// 🎯 가상 주문 시 인입될 다양한 메뉴 풀 (가격과 정확히 매칭)
 const DIVERSE_MENU_ORDERS = {
   chicken: [
     { name: '황금 후라이드 치킨', price: 19000 },
@@ -225,7 +225,6 @@ const DIVERSE_MENU_ORDERS = {
   ]
 }
 
-// 🎯 가상 리뷰 생성 시 사용되는 템플릿 풀
 const MOCK_REVIEW_TEMPLATES = {
   positive: {
     cafe: [
@@ -312,26 +311,12 @@ const getInitialStoreId = (): string => {
   return 'cafe'
 }
 
-// 🎯 [가상 주문 전용] 매출 및 전산표(차트/TOP5) 누적 함수
-const triggerGlobalSalesAccumulation = (storeId: string, amount: number, menuName: string) => {
-  const isCafe = storeId === 'cafe'
+// 🎯 시간대별 차트 및 TOP 5 판매량 갱신 함수 (매출 합산은 processStoreOrder가 전담하여 중복 방지)
+const triggerHourlyAndTopMenusUpdate = (storeId: string, amount: number, menuName: string) => {
   const currentHour = new Date().getHours()
   const timeKey = `${currentHour < 10 ? '0' : ''}${currentHour}:00`
 
-  // 1. 오늘 매출 & 이번 달 누적 매출 합산
-  const baseToday = isCafe ? 980000 : 1284000
-  const baseMonth = isCafe ? 15200000 : 18500000
-
-  const curToday = Number(localStorage.getItem(`localmate_today_sales_${storeId}`)) || baseToday
-  const curMonth = Number(localStorage.getItem(`localmate_month_sales_${storeId}`)) || baseMonth
-
-  const newToday = curToday + amount
-  const newMonth = curMonth + amount
-
-  localStorage.setItem(`localmate_today_sales_${storeId}`, newToday.toString())
-  localStorage.setItem(`localmate_month_sales_${storeId}`, newMonth.toString())
-
-  // 2. 시간대별 차트 데이터 갱신
+  // 1. 시간대별 차트 데이터 갱신
   const savedHourly = localStorage.getItem(`localmate_hourly_sales_${storeId}`)
   if (savedHourly) {
     try {
@@ -346,7 +331,7 @@ const triggerGlobalSalesAccumulation = (storeId: string, amount: number, menuNam
     } catch (e) {}
   }
 
-  // 3. 인기 메뉴 TOP 5 판매량 갱신
+  // 2. 인기 메뉴 TOP 5 판매량 갱신
   const savedTop = localStorage.getItem(`localmate_top_menus_${storeId}`)
   if (savedTop) {
     try {
@@ -366,11 +351,6 @@ const triggerGlobalSalesAccumulation = (storeId: string, amount: number, menuNam
       localStorage.setItem(`localmate_top_menus_${storeId}`, JSON.stringify(updated))
     } catch (e) {}
   }
-
-  // 4. 전역 동기화 이벤트 발행
-  window.dispatchEvent(new CustomEvent('localmate_sales_updated', {
-    detail: { storeId, amount, timeKey, menuName }
-  }))
 }
 
 export function ReviewsView() {
@@ -528,18 +508,53 @@ export function ReviewsView() {
     return applyForbiddenWordsFilter(`고객님, 안녕하십니까. ${storeLabel}입니다.\n정성껏 준비한 메뉴가 큰 만족을 드린 것 같아 기쁩니다.\n${highlight}\n앞으로도 변함없는 맛으로 보답하겠습니다.`, selectedStoreId)
   }
 
-  // 🎯 1. [가상 주문 인입] - 오로지 매출과 전산표(차트/TOP5)에만 누적 반영됨 (리뷰 생성 X)
+  // 🎯 1. [가상 주문 인입] - 단일 주문 파이프라인(processStoreOrder)으로 재고 차감 + 매출 누적 + 수익성 분석을 원자적으로 동기화
   const handleQuickOrder = () => {
     const isCafe = selectedStoreId === 'cafe'
-    const orderPool = isCafe ? DIVERSE_MENU_ORDERS.cafe : DIVERSE_MENU_ORDERS.chicken
-    const chosen = orderPool[Math.floor(Math.random() * orderPool.length)]
 
-    triggerGlobalSalesAccumulation(selectedStoreId, chosen.price, chosen.name)
-    setInfoMessage(`⚡ [배달 주문 인입] '${chosen.name}' (+${chosen.price.toLocaleString()}원)이 오늘 매출과 매장 분석에 즉각 반영되었습니다!`)
+    // A. 현재 매장에 등록된 실제 재고 목록에서 주문 가능한 메뉴 탐색
+    let activeStockItem: any = null
+    try {
+      const savedStock = localStorage.getItem(`localmate_stock_v5_${selectedStoreId}`)
+      if (savedStock) {
+        const stockList: any[] = JSON.parse(savedStock)
+        const inStock = stockList.filter((s: any) => (s.current ?? s.initial) > 0)
+        if (inStock.length > 0) {
+          activeStockItem = inStock[Math.floor(Math.random() * inStock.length)]
+        }
+      }
+    } catch (e) {}
+
+    let menuName = ''
+    let menuPrice = 0
+
+    if (activeStockItem) {
+      menuName = activeStockItem.name
+      menuPrice = Number(activeStockItem.price) || (isCafe ? 4500 : 19000)
+    } else {
+      const pool = isCafe ? DIVERSE_MENU_ORDERS.cafe : DIVERSE_MENU_ORDERS.chicken
+      const fallback = pool[Math.floor(Math.random() * pool.length)]
+      menuName = fallback.name
+      menuPrice = fallback.price
+    }
+
+    // B. 단일 주문 파이프라인 가동: 재고 차감(-1) + 당일/월 누적 매출 가산 + 실시간 브로드캐스팅
+    const success = processStoreOrder(selectedStoreId, menuName, 1)
+
+    if (!success && activeStockItem && activeStockItem.current <= 0) {
+      setInfoMessage(`⚠️ 현재 모든 메뉴의 재고가 소진되었습니다. [AI 업무 및 승인] 탭에서 시뮬레이션을 초기화해주세요.`)
+      setTimeout(() => setInfoMessage(null), 3500)
+      return
+    }
+
+    // C. 시간대별 차트 및 TOP 5 랭킹 동기화
+    triggerHourlyAndTopMenusUpdate(selectedStoreId, menuPrice, menuName)
+
+    setInfoMessage(`⚡ [배달 주문 인입] '${menuName}' (+${menuPrice.toLocaleString()}원) 결제 완료! 재고 차감(-1), 대시보드 매출, 메뉴 수익성이 실시간 동기화되었습니다.`)
     setTimeout(() => setInfoMessage(null), 3500)
   }
 
-  // 🎯 2. [가상 리뷰 생성] - 오로지 리뷰 관리와 감성 분석에만 반영됨 (매출 변동 X)
+  // 🎯 2. [가상 리뷰 생성] - CS·감성 분석 전용 (매출/재고 변동 없음)
   const handleCreateMockReview = () => {
     const isCafe = selectedStoreId === 'cafe'
     const photoPool = isCafe ? CAFE_PHOTOS : CHICKEN_PHOTOS
@@ -573,12 +588,12 @@ export function ReviewsView() {
     const chosenTemplate = templates[Math.floor(Math.random() * templates.length)]
 
     let selectedPhoto: string | undefined = undefined
-    if (typeof chosenTemplate.photoIdx === 'number') {
-      selectedPhoto = photoPool[chosenTemplate.photoIdx]
+    const templatePhotoIdx = (chosenTemplate as any).photoIdx
+    if (typeof templatePhotoIdx === 'number' && photoPool[templatePhotoIdx]) {
+      selectedPhoto = photoPool[templatePhotoIdx]
     } else if (reviewType === 'positive') {
       selectedPhoto = photoPool[Math.floor(Math.random() * photoPool.length)]
     }
-
     const newReview: Review = {
       id: `mock-${Date.now()}`,
       customerId: randomCustomer,
@@ -593,7 +608,6 @@ export function ReviewsView() {
       orderCount: reviewType === 'negative' ? 1 : Math.floor(Math.random() * 5) + 1
     } as any
 
-    // 🎯 리뷰 목록만 갱신 (매출 누적 함수는 일절 호출하지 않음)
     saveAndSetReviews([newReview, ...reviews])
 
     setInfoMessage(`📝 [${typeLabel} (★ ${rating})] 가상 리뷰가 등록되었습니다. (매출 변동 없이 CS 분석에만 반영됩니다)`)
@@ -706,7 +720,6 @@ export function ReviewsView() {
     }, 600)
   }
 
-  // 🎯 초기화: 리뷰 목록과 함께 가상 주문으로 누적된 매출 데이터도 기본값으로 일괄 리셋
   const handleResetReviews = () => {
     if (confirm('현재 매장의 리뷰와 함께 가상 주문으로 누적된 매출, 시간대별 차트, 인기 메뉴 통계를 모두 초기화하시겠습니까?')) {
       const freshDefaults = getDefaultData(selectedStoreId)
@@ -769,21 +782,21 @@ export function ReviewsView() {
             
             <div className="w-px h-6 bg-slate-200 mx-2"></div>
             
-            {/* 🎯 1. 가상 주문 인입 (매출·전산표 전용) */}
+            {/* 🎯 1. 가상 주문 인입 (단일 파이프라인 연동: 재고 차감 + 대시보드 매출 + 메뉴 수익성 순익 동시 가산) */}
             <button
               onClick={handleQuickOrder}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition shadow-xs"
-              title="클릭 시 다양한 메뉴가 랜덤으로 결제 인입되어 오늘 매출과 매장 분석에 즉시 반영됩니다 (리뷰 생성 X)"
+              title="클릭 시 현재 매장 메뉴가 실제 결제 인입되어 재고가 차감되고, 대시보드 오늘 매출 및 메뉴 수익성에 즉시 연동됩니다"
             >
               <ShoppingBag className="size-4 text-blue-600" />
               <span>가상 주문 인입</span>
             </button>
 
-            {/* 🎯 2. 가상 리뷰 생성 (CS·감성 분석 전용, 매출 변동 없음) */}
+            {/* 🎯 2. 가상 리뷰 생성 (CS·감성 분석 전용, 매출/재고 변동 없음) */}
             <button
               onClick={handleCreateMockReview}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition shadow-xs"
-              title="클릭 시 가상 리뷰가 생성되어 CS 분석에 반영됩니다 (매출은 증가하지 않습니다)"
+              title="클릭 시 가상 리뷰가 생성되어 CS 분석에 반영됩니다 (매출/재고는 변동되지 않습니다)"
             >
               <PlusCircle className="size-4 text-emerald-600" />
               <span>가상 리뷰 생성</span>

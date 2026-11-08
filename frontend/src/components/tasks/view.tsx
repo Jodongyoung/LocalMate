@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { 
-  ShieldAlert, 
   PackageX, 
   CheckCircle2, 
   XCircle, 
@@ -16,11 +15,12 @@ import {
   Save, 
   Plus, 
   Trash2, 
-  Upload, 
   FileSpreadsheet, 
   CheckSquare, 
   Square
 } from 'lucide-react'
+import { getCurrentWeatherScenario, sanitizeStoreKey } from '@/lib/weather-scenarios'
+import { processStoreOrder } from '@/lib/recipe-data'
 
 export interface MenuItem {
   name: string
@@ -80,7 +80,7 @@ export const STORE_MENU_POOLS: Record<string, MenuItem[]> = {
     { name: '특제 모짜 치즈볼', category: '사이드메뉴', initial: 40, unit: '세트', price: 5500, packageDesc: '5개입' },
     { name: '수제 바베큐 윙봉', category: '사이드메뉴', initial: 25, unit: '세트', price: 10500, packageDesc: '6조각' },
     { name: '트러플 감자튀김', category: '사이드메뉴', initial: 30, unit: '봉지', price: 5000, packageDesc: '1봉(250g)' },
-    { name: '치즈닝 떡볶이', category: '사이드메뉴', initial: 20, unit: '그릇', price: 6500, packageDesc: '1그릇' },
+    { name: '치즈닝 떡볶이', category: '사이드메뉴', initial: 20, unit: '그릇', price: 6500, packageDesc: '1개' },
     { name: '콜라 1.25L', category: '음료및주류', initial: 50, unit: '병', price: 3000, packageDesc: '1병' },
     { name: '생맥주 1000cc', category: '음료및주류', initial: 30, unit: '병', price: 7000, packageDesc: '1병' }
   ]
@@ -103,59 +103,146 @@ const STORE_DEFAULT_STOCKS: Record<string, StockItem[]> = {
   ]
 }
 
-const STORE_DEFAULT_PROPOSALS: Record<string, OperationalTask[]> = {
-  cafe: [
-    {
-      id: 'task-cafe-delay',
-      category: 'delay',
-      title: '점심 피크타임 테이크아웃 대기 지연 방어',
-      badge: '대기 방어 78%',
-      badgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
-      triggerReason: '오피스 상권 12:30 주문 집중 감지 (예상 픽업 대기 시간 18분 초과로 인한 불만 위험)',
-      actionDetail: '배민오더 예상 픽업 대기 시간 +10분 연장 및 시간 소요가 큰 핸드드립 메뉴 일시 마감',
-      platformTarget: '배달의민족 / 쿠팡이츠 포장·매장 설정',
-      status: 'pending',
-      timestamp: '방금 전'
-    },
-    {
-      id: 'task-cafe-promo',
-      category: 'promo',
-      title: '비수기 유휴 시간 디저트 페어링 타임세일',
-      badge: '회전율 부스팅',
-      badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-      triggerReason: '14:00~16:30 주문 공백기 발생 (오후 나른한 시간대 유휴 좌석률 65% 저조)',
-      actionDetail: '16:30까지 [아메리카노 + 조각케이크] 포장 세트 1,500원 깜짝 할인 쿠폰 배너 노출',
-      platformTarget: '배달앱 포장 할인 쿠폰 자동 발행',
-      status: 'pending',
-      timestamp: '10분 전'
+const STORE_BASE_PROMOS: Record<string, OperationalTask> = {
+  cafe: {
+    id: 'task-cafe-promo',
+    category: 'promo',
+    title: '비수기 유휴 시간 디저트 페어링 타임세일',
+    badge: '회전율 부스팅',
+    badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    triggerReason: '14:00~16:30 주문 공백기 발생 (오후 나른한 시간대 유휴 좌석률 65% 저조)',
+    actionDetail: '16:30까지 [아메리카노 + 조각케이크] 포장 세트 1,500원 깜짝 할인 쿠폰 배너 노출',
+    platformTarget: '배달앱 포장 할인 쿠폰 자동 발행',
+    status: 'pending',
+    timestamp: '10분 전'
+  },
+  chicken: {
+    id: 'task-chk-promo',
+    category: 'promo',
+    title: '비수기 유휴 시간대 포장 타임세일 부스팅',
+    badge: '매출 부스팅',
+    badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    triggerReason: '14:00~17:00 주문 공백기 발생 (전주 대비 유휴 회전율 32% 저조)',
+    actionDetail: '17:00까지 배민 포장 주문 2,000원 깜짝 할인 쿠폰 배너 노출',
+    platformTarget: '배민 포장 쿠폰 자동 발행',
+    status: 'pending',
+    timestamp: '15분 전'
+  }
+}
+
+export const getDynamicBadgeColor = (task: OperationalTask): string => {
+  const text = `${task.badge} ${task.title}`
+  if (text.includes('우천') || text.includes('비')) {
+    return 'bg-blue-50 text-blue-700 border-blue-200'
+  }
+  if (text.includes('폭염') || text.includes('더위')) {
+    return 'bg-rose-50 text-rose-700 border-rose-200'
+  }
+  if (text.includes('폭설') || text.includes('한파') || text.includes('눈') || text.includes('빙판')) {
+    return 'bg-sky-50 text-sky-700 border-sky-200'
+  }
+  if (text.includes('부스팅') || text.includes('세일') || text.includes('회전율')) {
+    return 'bg-indigo-50 text-indigo-700 border-indigo-200'
+  }
+  if (text.includes('품절')) {
+    return 'bg-purple-50 text-purple-700 border-purple-200'
+  }
+  if (text.includes('소진') || text.includes('임박') || text.includes('대기 방어')) {
+    return 'bg-amber-50 text-amber-700 border-amber-200'
+  }
+  return task.badgeColor || 'bg-slate-50 text-slate-700 border-slate-200'
+}
+
+const getWeatherDynamicProposal = (targetStoreId: string): OperationalTask => {
+  const safeId = sanitizeStoreKey(targetStoreId)
+  const isCafe = safeId === 'cafe' || (!safeId.includes('치킨') && !safeId.includes('chicken'))
+  const storeKey = isCafe ? 'cafe' : 'chicken'
+  const weatherInfo = getCurrentWeatherScenario(storeKey)
+  const weatherType = weatherInfo.weather
+
+  if (isCafe) {
+    if (weatherType === 'heat') {
+      return {
+        id: 'task-weather-delay-cafe',
+        category: 'delay',
+        title: '폭염 특수 대용량 아이스 음료 병목 & 보냉 선제 방어',
+        badge: '☀️ 폭염 특보 (35℃)',
+        badgeColor: 'bg-rose-50 text-rose-700 border-rose-200',
+        triggerReason: `${weatherInfo.conditionText} 감지 (제빙기 얼음 급격 소진 및 대용량 아이스 아메리카노 테이크아웃 폭증)`,
+        actionDetail: '배민오더/배달앱 아이스 음료 조리 대기 시간 +10분 사전 연장 및 보냉백 안심 패키징 배너 자동 노출',
+        platformTarget: '배달의민족 / 쿠팡이츠 매장 설정',
+        status: 'pending',
+        timestamp: '실시간 감지'
+      }
+    } else if (weatherType === 'rain') {
+      return {
+        id: 'task-weather-delay-cafe',
+        category: 'delay',
+        title: '우천 매장 체류 급증 및 따뜻한 음료·디저트 페어링 방어',
+        badge: '🌧️ 우천 주의보 (70%)',
+        badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
+        triggerReason: `${weatherInfo.conditionText} 감지 (매장 홀 체류 시간 증가 및 배달 라이더 배차 지연 불만 위험)`,
+        actionDetail: '배민오더 예상 픽업 대기 시간 +10분 연장 및 비 오는 날 전용 [따뜻한 라떼 + 크로플 세트] 상단 우선 노출',
+        platformTarget: '배달의민족 / 쿠팡이츠 포장·매장 설정',
+        status: 'pending',
+        timestamp: '실시간 감지'
+      }
+    } else {
+      return {
+        id: 'task-weather-delay-cafe',
+        category: 'delay',
+        title: '한파 온음료 급증 및 스팀 밀크 병목 선제 방어',
+        badge: '🧊 한파 특보 (-5℃)',
+        badgeColor: 'bg-sky-50 text-sky-700 border-sky-200',
+        triggerReason: `${weatherInfo.conditionText} 감지 (따뜻한 라떼/온음료 주문 75% 폭증으로 인한 스팀 조리 지연 위험)`,
+        actionDetail: '배민오더 픽업 대기 시간 +10분 연장 및 온음료 전용 2중 단열 컵홀더/보온재 우선 패킹 배너 자동 적용',
+        platformTarget: '배달의민족 매장 설정',
+        status: 'pending',
+        timestamp: '실시간 감지'
+      }
     }
-  ],
-  chicken: [
-    {
-      id: 'task-chk-delay',
-      category: 'delay',
-      title: '우천 피크타임 배달 지연 선제 방어',
-      badge: '위기 방어 85%',
-      badgeColor: 'bg-rose-50 text-rose-700 border-rose-200',
-      triggerReason: '강수 확률 85% 악천후 + 19시 피크타임 배차 지연 감지 (30분 내 지연 불만율 급증 예측)',
-      actionDetail: '배달앱 기본 조리 대기 시간 +15분 연장 및 배달 권역 1.5km 일시 조정',
-      platformTarget: '쿠팡이츠 / 배달의민족 매장 설정',
-      status: 'pending',
-      timestamp: '방금 전'
-    },
-    {
-      id: 'task-chk-promo',
-      category: 'promo',
-      title: '비수기 유휴 시간대 포장 타임세일 부스팅',
-      badge: '매출 부스팅',
-      badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-      triggerReason: '14:00~17:00 주문 공백기 발생 (전주 대비 유휴 회전율 32% 저조)',
-      actionDetail: '17:00까지 배민 포장 주문 2,000원 깜짝 할인 쿠폰 배너 노출',
-      platformTarget: '배민 포장 쿠폰 자동 발행',
-      status: 'pending',
-      timestamp: '15분 전'
+  } else {
+    if (weatherType === 'rain') {
+      return {
+        id: 'task-weather-delay-chicken',
+        category: 'delay',
+        title: '우천 피크타임 배달 급증 및 라이더 배차 지연 선제 방어',
+        badge: '🌧️ 우천 주의보 (85%)',
+        badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
+        triggerReason: `${weatherInfo.conditionText} (치킨 배달 주문 35% 급증 및 30분 내 라이더 배차 지연 예측)`,
+        actionDetail: '배달앱 기본 조리 대기 시간 +15분 연장 및 눅눅함 방지 치킨 박스 숨구멍 패키징 점검 안내 배너 노출',
+        platformTarget: '쿠팡이츠 / 배달의민족 매장 설정',
+        status: 'pending',
+        timestamp: '실시간 감지'
+      }
+    } else if (weatherType === 'heat') {
+      return {
+        id: 'task-weather-delay-chicken',
+        category: 'delay',
+        title: '폭염 야식·생맥주 주문 폭증 및 신선도 선제 방어',
+        badge: '🔥 폭염 경보 (34℃)',
+        badgeColor: 'bg-orange-50 text-orange-700 border-orange-200',
+        triggerReason: `${weatherInfo.conditionText} (야간 생맥주 1000cc 및 치킨 동시 주문 28% 폭증, 배송 중 온도 상승 위험 감지)`,
+        actionDetail: '배달앱 기본 조리 대기 시간 +10분 연장 및 생맥주/치킨무 보냉 패키징 안심 알림 배너 자동 노출',
+        platformTarget: '쿠팡이츠 / 배달의민족 매장 설정',
+        status: 'pending',
+        timestamp: '실시간 감지'
+      }
+    } else {
+      return {
+        id: 'task-weather-delay-chicken',
+        category: 'delay',
+        title: '폭설 도로 결빙 및 라이더 배차 지연 선제 방어',
+        badge: '❄️ 폭설 주의',
+        badgeColor: 'bg-sky-50 text-sky-700 border-sky-200',
+        triggerReason: `${weatherInfo.conditionText} (빙판길 배차 지연 및 배달 소요시간 2배 급증 예측)`,
+        actionDetail: '배달 가능 반경 1.5km 일시 축소 및 배민/쿠팡이츠 예상 배달 시간 +20분 즉시 연장',
+        platformTarget: '쿠팡이츠 / 배달의민족 매장 설정',
+        status: 'pending',
+        timestamp: '실시간 감지'
+      }
     }
-  ]
+  }
 }
 
 const getInitialStoreId = (): string => {
@@ -173,10 +260,7 @@ const sanitizeStockItems = (items: any[], fallbackPool: MenuItem[]): StockItem[]
       const matched = fallbackPool.find(m => m.name === item.name)
       finalPrice = matched?.price ?? 15000
     }
-    return {
-      ...item,
-      price: finalPrice
-    }
+    return { ...item, price: finalPrice }
   })
 }
 
@@ -214,15 +298,22 @@ const getInitialStockItems = (storeId: string): StockItem[] => {
 }
 
 const getInitialProposals = (storeId: string): OperationalTask[] => {
-  const isCafe = storeId === 'cafe'
-  const defaultProposals = isCafe ? STORE_DEFAULT_PROPOSALS.cafe : STORE_DEFAULT_PROPOSALS.chicken
+  const safeId = sanitizeStoreKey(storeId)
+  const isCafe = safeId === 'cafe'
+  const weatherTask = getWeatherDynamicProposal(safeId)
+  const promoTask = isCafe ? STORE_BASE_PROMOS.cafe : STORE_BASE_PROMOS.chicken
+
   if (typeof window !== 'undefined') {
-    const savedProposals = localStorage.getItem(`localmate_proposals_v5_${storeId}`)
+    const savedProposals = localStorage.getItem(`localmate_proposals_v5_${safeId}`)
     if (savedProposals) {
-      try { return JSON.parse(savedProposals) } catch (e) {}
+      try { 
+        const parsed = JSON.parse(savedProposals) as OperationalTask[]
+        const nonWeatherTasks = parsed.filter(p => p.category !== 'delay')
+        return [weatherTask, ...nonWeatherTasks]
+      } catch (e) {}
     }
   }
-  return defaultProposals
+  return [weatherTask, promoTask]
 }
 
 export function TasksView() {
@@ -234,24 +325,41 @@ export function TasksView() {
   const [editList, setEditList] = useState<StockItem[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const loadStoreData = (storeId: string) => {
-    setSelectedStoreId(storeId)
-    const isCafe = storeId === 'cafe'
+  const loadStoreData = useCallback((storeId: string) => {
+    const safeId = sanitizeStoreKey(storeId)
+    setSelectedStoreId(safeId)
+    const isCafe = safeId === 'cafe'
     const defaultPool = isCafe ? STORE_MENU_POOLS.cafe : STORE_MENU_POOLS.chicken
     const defaultStock = isCafe ? STORE_DEFAULT_STOCKS.cafe : STORE_DEFAULT_STOCKS.chicken
-    const defaultProposals = isCafe ? STORE_DEFAULT_PROPOSALS.cafe : STORE_DEFAULT_PROPOSALS.chicken
+    
+    const weatherTask = getWeatherDynamicProposal(safeId)
+    const promoTask = isCafe ? STORE_BASE_PROMOS.cafe : STORE_BASE_PROMOS.chicken
 
-    const savedPool = localStorage.getItem(`localmate_menupool_v5_${storeId}`)
+    const savedPool = localStorage.getItem(`localmate_menupool_v5_${safeId}`)
     const loadedPool: MenuItem[] = savedPool ? JSON.parse(savedPool) : defaultPool
     setMenuPool(loadedPool.map(m => ({ ...m, price: Number(m.price) || 15000 })))
 
-    const savedStock = localStorage.getItem(`localmate_stock_v5_${storeId}`)
+    const savedStock = localStorage.getItem(`localmate_stock_v5_${safeId}`)
     const loadedStock: any[] = savedStock ? JSON.parse(savedStock) : defaultStock
     setStockItems(sanitizeStockItems(loadedStock, loadedPool))
 
-    const savedProposals = localStorage.getItem(`localmate_proposals_v5_${storeId}`)
-    setProposals(savedProposals ? JSON.parse(savedProposals) : defaultProposals)
-  }
+    const savedProposals = localStorage.getItem(`localmate_proposals_v5_${safeId}`)
+    if (savedProposals) {
+      try {
+        const parsed = JSON.parse(savedProposals) as OperationalTask[]
+        const nonWeatherTasks = parsed.filter(p => p.category !== 'delay')
+        const freshList = [weatherTask, ...nonWeatherTasks]
+        setProposals(freshList)
+        localStorage.setItem(`localmate_proposals_v5_${safeId}`, JSON.stringify(freshList))
+      } catch (e) {
+        setProposals([weatherTask, promoTask])
+      }
+    } else {
+      const freshList = [weatherTask, promoTask]
+      setProposals(freshList)
+      localStorage.setItem(`localmate_proposals_v5_${safeId}`, JSON.stringify(freshList))
+    }
+  }, [])
 
   useEffect(() => {
     const savedStore = localStorage.getItem('localmate_store_id') || 'cafe'
@@ -259,19 +367,25 @@ export function TasksView() {
 
     const handleSync = (e: Event) => {
       const customEvent = e as CustomEvent<string>
-      if (customEvent.detail) {
-        loadStoreData(customEvent.detail)
-        setIsEditingStock(false)
-      }
+      const nextStore = customEvent.detail || localStorage.getItem('localmate_store_id') || 'cafe'
+      loadStoreData(nextStore)
+      setIsEditingStock(false)
+    }
+
+    const handleWeatherSync = () => {
+      const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
+      loadStoreData(currentStore)
     }
 
     window.addEventListener('storeChange', handleSync)
+    window.addEventListener('weatherChange', handleWeatherSync)
     window.addEventListener('storage', handleSync)
     return () => {
       window.removeEventListener('storeChange', handleSync)
+      window.removeEventListener('weatherChange', handleWeatherSync)
       window.removeEventListener('storage', handleSync)
     }
-  }, [])
+  }, [loadStoreData])
 
   const syncAndSave = (newProposals: OperationalTask[], newStock?: StockItem[], newPool?: MenuItem[]) => {
     setProposals(newProposals)
@@ -280,11 +394,13 @@ export function TasksView() {
     if (newStock) {
       setStockItems(newStock)
       localStorage.setItem(`localmate_stock_v5_${selectedStoreId}`, JSON.stringify(newStock))
+      window.dispatchEvent(new CustomEvent('stockUpdated', { detail: { storeId: selectedStoreId, stock: newStock } }))
     }
 
     if (newPool) {
       setMenuPool(newPool)
       localStorage.setItem(`localmate_menupool_v5_${selectedStoreId}`, JSON.stringify(newPool))
+      window.dispatchEvent(new CustomEvent('menuUpdated', { detail: { storeId: selectedStoreId } }))
     }
 
     const pendingCount = newProposals.filter(p => p.status === 'pending').length
@@ -292,14 +408,19 @@ export function TasksView() {
     window.dispatchEvent(new CustomEvent('pendingTasksUpdated', { detail: pendingCount }))
   }
 
-  // 🎯 판매 출고 핸들러 (매출/전산표는 건드리지 않고 오직 재고 차감 및 AI 대응 시뮬레이션만 동작)
+  // 🚀 [연동 핵심] 판매 출고 시 단일 주문 파이프라인(processStoreOrder) 가동
   const handleOrderDeduct = (item: StockItem) => {
     if (item.current <= 0) return
 
+    // 1. 재고 차감 + 매출 누적 + 이벤트 발행 일원화 처리
+    processStoreOrder(selectedStoreId, item.name, item.perOrder)
+
+    // 2. 컴포넌트 내부 로컬 잔여 수량 동기화
     const nextCurrent = Math.max(0, item.current - item.perOrder)
     const updatedStock = stockItems.map(s => s.id === item.id ? { ...s, current: nextCurrent } : s)
     let updatedProposals = [...proposals]
 
+    // 3. 소진 임박 / 완전 품절 위기 대응 카드 생성
     const threshold = item.perOrder * 2
     if (nextCurrent > 0 && nextCurrent <= threshold) {
       const warningTaskId = `task-stock-warning-${item.id}`
@@ -478,22 +599,24 @@ export function TasksView() {
       if (parsedInitialCards.length > 0) {
         setIsEditingStock(false)
         syncAndSave(proposals, parsedInitialCards, parsedPool)
-        alert(`메뉴판 파일에서 ${parsedPool.length}개 메뉴(가격 정보 포함)를 성공적으로 학습했습니다.\n상위 ${parsedInitialCards.length}개 메뉴가 실시간 트래커에 즉각 반영되었습니다.`)
+        alert(`메뉴판 파일에서 ${parsedPool.length}개 메뉴를 학습했습니다.\n상위 ${parsedInitialCards.length}개 메뉴가 실시간 트래커와 메뉴 수익성 분석에 즉시 반영되었습니다.`)
       } else {
-        alert('올바른 형식의 메뉴판 파일(CSV)을 읽지 못했습니다.\n형식: 메뉴명, 카테고리, 준비수량, 가격(원), 기본구성')
+        alert('올바른 형식의 메뉴판 파일(CSV)을 읽지 못했습니다.')
       }
     }
     reader.readAsText(file, 'utf-8')
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  // 🎯 단독 초기화: 매출/전산표는 보존하고 오직 이 화면의 재고 수량과 결재 카드만 기본값으로 리셋
   const handleResetSimulation = () => {
     if (confirm('현재 매장의 메뉴 준비 수량과 결재 제안 카드만 기본값으로 초기화하시겠습니까?\n(누적된 매출과 전산표 통계는 유지됩니다)')) {
       const isCafe = selectedStoreId === 'cafe'
       const defaultStock = isCafe ? STORE_DEFAULT_STOCKS.cafe : STORE_DEFAULT_STOCKS.chicken
-      const defaultProposals = isCafe ? STORE_DEFAULT_PROPOSALS.cafe : STORE_DEFAULT_PROPOSALS.chicken
       const defaultPool = isCafe ? STORE_MENU_POOLS.cafe : STORE_MENU_POOLS.chicken
+      
+      const weatherTask = getWeatherDynamicProposal(selectedStoreId)
+      const promoTask = isCafe ? STORE_BASE_PROMOS.cafe : STORE_BASE_PROMOS.chicken
+      const defaultProposals = [weatherTask, promoTask]
       
       setIsEditingStock(false)
       syncAndSave(defaultProposals, defaultStock, defaultPool)
@@ -529,7 +652,7 @@ export function TasksView() {
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              AI가 위기 상황을 선제 감지하여 대책을 수립합니다. 점주의 원클릭 승인 즉시 배달 플랫폼 설정에 자동 반영됩니다.
+              AI가 기상 상황 및 매장 환경을 선제 감지하여 대책을 수립합니다. 점주의 원클릭 승인 즉시 배달 플랫폼 설정에 자동 반영됩니다.
             </p>
           </div>
 
@@ -578,6 +701,7 @@ export function TasksView() {
               <span className="text-[11px] text-slate-400 font-normal">| POS 실시간 연동 ({stockItems.length}/5)</span>
             </div>
 
+            {/* 🎯 [단일화 완료] 메뉴판 파일 업로드 버튼 1개만 깔끔하게 배치 */}
             <div className="flex items-center gap-2">
               <input 
                 type="file" 
@@ -587,48 +711,48 @@ export function TasksView() {
                 className="hidden" 
               />
 
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition flex items-center gap-1.5 shadow-2xs"
+                title="CSV 메뉴판을 업로드하여 전체 메뉴 및 단가를 일괄 변경합니다"
+              >
+                <FileSpreadsheet className="size-3.5 text-indigo-600" /> 메뉴판(CSV) 등록
+              </button>
+
               {isEditingStock ? (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-2.5 py-1 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition flex items-center gap-1"
-                  >
-                    <Upload className="size-3 text-slate-500" /> 엑셀/CSV 업로드
-                  </button>
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={handleAddItem}
                     disabled={editList.length >= 5}
-                    className="px-2.5 py-1 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition flex items-center gap-1 disabled:opacity-40"
+                    className="px-2.5 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition flex items-center gap-1 disabled:opacity-40"
                   >
                     <Plus className="size-3" /> 메뉴 추가 (+1)
                   </button>
                   <button
                     type="button"
                     onClick={handleSaveEdit}
-                    className="px-3 py-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition flex items-center gap-1 shadow-xs"
+                    className="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition flex items-center gap-1 shadow-xs"
                   >
                     <Save className="size-3" /> 저장 및 적용
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingStock(false)}
+                    className="px-2.5 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 rounded-lg transition"
+                  >
+                    취소
+                  </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-2.5 py-1 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition flex items-center gap-1"
-                  >
-                    <FileSpreadsheet className="size-3 text-slate-500" /> 메뉴판 파일 업로드
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleOpenEdit}
-                    className="px-2.5 py-1 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition flex items-center gap-1"
-                  >
-                    <Settings2 className="size-3 text-slate-500" /> 메뉴 및 수량 직접 설정
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleOpenEdit}
+                  className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition flex items-center gap-1.5 shadow-2xs"
+                >
+                  <Settings2 className="size-3.5 text-slate-500" /> 메뉴 및 수량 직접 설정
+                </button>
               )}
             </div>
           </div>
@@ -789,7 +913,6 @@ export function TasksView() {
                         </div>
                       </div>
 
-                      {/* 🎯 버튼 문구 변경: 금액 표현 제거 및 실제 출고 안내로 개편 */}
                       <button
                         type="button"
                         onClick={() => handleOrderDeduct(item)}
@@ -827,7 +950,7 @@ export function TasksView() {
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${task.badgeColor}`}>
+                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${getDynamicBadgeColor(task)}`}>
                         {task.badge}
                       </span>
                       <h3 className="text-sm font-bold text-slate-900">{task.title}</h3>

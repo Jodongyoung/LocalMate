@@ -8,7 +8,6 @@ export interface WeatherCondition {
   botAnswer: string;
 }
 
-// 🇰🇷 대한민국 표준 시·도 및 정규 시·군·구 사전
 export const KOREA_REGIONS: Record<string, string[]> = {
   '서울': ['강남구', '강동구', '강북구', '강서구', '관악구', '광진구', '구로구', '금천구', '노원구', '도봉구', '동대문구', '동작구', '마포구', '서대문구', '서초구', '성동구', '성북구', '송파구', '양천구', '영등포구', '용산구', '은평구', '종로구', '중구', '중랑구'],
   '부산': ['강서구', '금정구', '기장군', '남구', '동구', '동래구', '부산진구', '북구', '사상구', '사하구', '서구', '수영구', '연제구', '영도구', '중구', '해운대구'],
@@ -29,7 +28,6 @@ export const KOREA_REGIONS: Record<string, string[]> = {
   '제주': ['제주시', '서귀포시']
 };
 
-// 📍 엄격한 주소 검증 함수 (포항 제주, 서울 수성 같은 혼합 주소 철저 차단)
 export function validateAndParseKoreanAddress(address: string): { isValid: boolean; district: string; branchName: string; errorMsg?: string } {
   if (!address || typeof address !== 'string' || !address.trim()) {
     return { isValid: false, district: '', branchName: '', errorMsg: '주소를 입력해주세요.' };
@@ -38,7 +36,6 @@ export function validateAndParseKoreanAddress(address: string): { isValid: boole
   const clean = address.trim().replace(/\s+/g, ' ');
   const tokens = clean.split(' ');
 
-  // 시/도 정규화 헬퍼
   const normalizeProvince = (p: string) => {
     if (p.startsWith('서울')) return '서울';
     if (p.startsWith('부산')) return '부산';
@@ -60,24 +57,12 @@ export function validateAndParseKoreanAddress(address: string): { isValid: boole
     return null;
   };
 
-  // 1. "포항 북구", "포항 남구" 특수 케이스 검사
   if (clean.includes('포항')) {
-    if (clean.includes('북구') || clean.includes('북')) {
-      return { isValid: true, district: '경북 포항 북구', branchName: '포항 북구점' };
-    }
-    if (clean.includes('남구') || clean.includes('남')) {
-      return { isValid: true, district: '경북 포항 남구', branchName: '포항 남구점' };
-    }
-    // 포항인데 북구/남구가 아니거나 뒤에 엉뚱한 단어(제주 등)가 붙은 경우 차단!
-    return {
-      isValid: false,
-      district: '',
-      branchName: '',
-      errorMsg: '포항시는 "포항 북구" 또는 "포항 남구"로 구를 함께 명시해주세요.'
-    };
+    if (clean.includes('북구') || clean.includes('북')) return { isValid: true, district: '경북 포항 북구', branchName: '포항 북구점' };
+    if (clean.includes('남구') || clean.includes('남')) return { isValid: true, district: '경북 포항 남구', branchName: '포항 남구점' };
+    return { isValid: false, district: '', branchName: '', errorMsg: '포항시는 "포항 북구" 또는 "포항 남구"로 구를 함께 명시해주세요.' };
   }
 
-  // 2. "창원 의창구/성산구/마산합포구..." 특수 케이스 검사
   if (clean.includes('창원')) {
     const changwonDistricts = ['의창구', '성산구', '마산합포구', '마산회원구', '진해구'];
     for (const d of changwonDistricts) {
@@ -85,78 +70,48 @@ export function validateAndParseKoreanAddress(address: string): { isValid: boole
         return { isValid: true, district: `경남 창원 ${d}`, branchName: `창원 ${d}점` };
       }
     }
-    return {
-      isValid: false,
-      district: '',
-      branchName: '',
-      errorMsg: '창원시는 상세 구(예: 성산구, 의창구)를 함께 명시해주세요.'
-    };
+    return { isValid: false, district: '', branchName: '', errorMsg: '창원시는 상세 구를 함께 명시해주세요.' };
   }
 
-  // 3. 첫 단어가 시/도인 경우 (예: "서울 강남", "대구 중구", "경북 경산")
   const province = normalizeProvince(tokens[0]);
   if (province) {
     const rest = tokens.slice(1).join(' ').trim();
-    if (!rest) {
-      return { isValid: false, district: '', branchName: '', errorMsg: `'${tokens[0]}' 뒤에 구/시/군 명칭을 함께 입력해주세요.` };
-    }
+    if (!rest) return { isValid: false, district: '', branchName: '', errorMsg: `'${tokens[0]}' 뒤에 구/시/군 명칭을 함께 입력해주세요.` };
 
     const validSubRegions = KOREA_REGIONS[province];
-    // 해당 시/도에 진짜 존재하는 하위 구/시인지 검사
     for (const validSub of validSubRegions) {
       const pureSub = validSub.replace(/[시|구|군]$/, '');
       if (rest.startsWith(validSub) || rest.startsWith(pureSub) || rest.includes(validSub) || rest.includes(pureSub)) {
-        return {
-          isValid: true,
-          district: `${province} ${validSub}`,
-          branchName: `${validSub}점`
-        };
+        return { isValid: true, district: `${province} ${validSub}`, branchName: `${validSub}점` };
       }
     }
-
-    // 시/도는 맞는데 하위 구가 그 도시에 없는 경우 (예: "서울 수성구", "대구 강남")
-    return {
-      isValid: false,
-      district: '',
-      branchName: '',
-      errorMsg: `'${province}'에는 '${rest}'(이)라는 구/군/시가 존재하지 않습니다.`
-    };
+    return { isValid: false, district: '', branchName: '', errorMsg: `'${province}'에는 '${rest}'(이)라는 구/군/시가 존재하지 않습니다.` };
   }
 
-  // 4. 시/도 없이 구/시만 쓴 경우 (예: "달서구", "해운대구", "강남구", "수성구")
   for (const [prov, subList] of Object.entries(KOREA_REGIONS)) {
     for (const sub of subList) {
       const pureSub = sub.replace(/[시|구|군]$/, '');
       if (clean === sub || clean === pureSub || clean.startsWith(sub) || clean.startsWith(pureSub)) {
-        return {
-          isValid: true,
-          district: `${prov} ${sub}`,
-          branchName: `${sub}점`
-        };
+        return { isValid: true, district: `${prov} ${sub}`, branchName: `${sub}점` };
       }
     }
   }
 
-  // 전부 통과하지 못한 경우 (완전 허위 주소)
-  return {
-    isValid: false,
-    district: '',
-    branchName: '',
-    errorMsg: '올바른 대한민국 지역 주소가 아닙니다. (예: 서울 강남구, 대구 중구, 포항 북구)'
-  };
+  return { isValid: false, district: '', branchName: '', errorMsg: '올바른 대한민국 지역 주소가 아닙니다. (예: 대구 중구, 대구 수성구)' };
 }
 
+// 🌤️ 매장별 날씨 시나리오 (치킨집 0번: 우천 / 카페 0번: 폭염)
 export const STORE_WEATHER_SCENARIOS: Record<string, WeatherCondition[]> = {
-  // 1. 치킨집 시나리오
+  // 1. 치킨 전문점 (대구 수성구점) ➔ 기본 0번: 🌧️ 우천
   chicken: [
     {
-      weather: 'snow',
+      weather: 'rain',
       title: '실시간 날씨 맞춤 브리핑',
-      conditionText: '{location} 대설 주의보 (적설량 3cm 예상)',
-      badgeText: '❄️ 폭설 주의',
-      actionAdvice: '빙판길로 인해 배달 대행사 배차가 지연될 수 있습니다. 포장 주문 혜택을 강화하세요.',
-      quickChipText: '❄️ 폭설 대비 매장 운영 팁',
-      botAnswer: '눈이 오면 라이더 배차가 평소보다 2배 이상 지연됩니다!\n\n1. 배달 가능 반경을 1.5km 이내로 일시 축소 권장합니다.\n2. "포장 방문 시 2,000원 할인"을 앱 상단에 걸어 픽업 고객을 유도하세요.\n3. 매장 입구 미끄럼 방지 매트를 점검하세요.'
+      conditionText: '{location} 비 소식이 있어요 (강수 확률 85%)',
+      badgeText: '🌧️ 우천 주의보',
+      actionAdvice: '비 오는 날은 배달 주문이 평소보다 35% 늘어납니다. 라이더 배차 시간을 미리 10분 늘려 잡으세요.',
+      quickChipText: '🌧️ 비 오는 날 배달·매출 증대 팁',
+      botAnswer: '지난 6개월 데이터를 보면 비 오는 날 치킨 배달 주문이 평균 35% 급증해요!\n\n1. 피크타임 전 "비 오는 날 배달비 1천원 지원" 쿠폰을 미리 세팅하세요.\n2. 눅눅해짐 방지를 위해 치킨 박스 숨구멍 패키징을 점검하세요.\n3. 예상 조리·배달 시간을 미리 10분 넉넉하게 걸어두면 지연 불만을 방지할 수 있습니다.'
     },
     {
       weather: 'heat',
@@ -168,26 +123,26 @@ export const STORE_WEATHER_SCENARIOS: Record<string, WeatherCondition[]> = {
       botAnswer: '기온이 30도를 넘으면 저녁 8시 이후 야식과 주류 매출이 28% 상승합니다!\n\n1. 생맥주 1,000cc + 치킨 콤보 메뉴를 배민 대표 메뉴로 올려두세요.\n2. 치킨 무와 음료를 평소보다 1.5배 시원하게 냉장 보관하세요.'
     },
     {
-      weather: 'rain',
+      weather: 'snow',
       title: '실시간 날씨 맞춤 브리핑',
-      conditionText: '{location} 비 소식이 있어요 (강수 확률 85%)',
-      badgeText: '🌧️ 우천 주의보',
-      actionAdvice: '비 오는 날은 배달 주문이 평소보다 35% 늘어납니다. 라이더 배차 시간을 미리 10분 늘려 잡으세요.',
-      quickChipText: '🌧️ 비 오는 날 배달·매출 증대 팁',
-      botAnswer: '지난 6개월 데이터를 보면 비 오는 날 치킨 배달 주문이 평균 35% 급증해요!\n\n1. 피크타임 전 "비 오는 날 배달비 1천원 지원" 쿠폰을 미리 세팅하세요.\n2. 눅눅해짐 방지를 위해 치킨 박스 숨구멍 패키징을 점검하세요.\n3. 예상 조리·배달 시간을 미리 10분 넉넉하게 걸어두면 지연 불만을 방지할 수 있습니다.'
+      conditionText: '{location} 대설 주의보 (적설량 3cm 예상)',
+      badgeText: '❄️ 폭설 주의',
+      actionAdvice: '빙판길로 인해 배달 대행사 배차가 지연될 수 있습니다. 포장 주문 혜택을 강화하세요.',
+      quickChipText: '❄️ 폭설 대비 매장 운영 팁',
+      botAnswer: '눈이 오면 라이더 배차가 평소보다 2배 이상 지연됩니다!\n\n1. 배달 가능 반경을 1.5km 이내로 일시 축소 권장합니다.\n2. "포장 방문 시 2,000원 할인"을 앱 상단에 걸어 픽업 고객을 유도하세요.\n3. 매장 입구 미끄럼 방지 매트를 점검하세요.'
     }
   ],
 
-  // 2. 카페 시나리오
+  // 2. 카페 (대구 중구 동성로본점) ➔ 기본 0번: ☀️ 폭염
   cafe: [
     {
-      weather: 'cold',
+      weather: 'heat',
       title: '실시간 날씨 맞춤 브리핑',
-      conditionText: '{location} 현재 체감 기온 영하 5℃ 한파 특보',
-      badgeText: '🧊 강추위',
-      actionAdvice: '따뜻한 시그니처 핫음료 수요가 폭증합니다. 스팀 밀크 재고를 넉넉히 확인하세요.',
-      quickChipText: '🧣 한파 대비 메뉴 추천 팁',
-      botAnswer: '영하권 날씨에는 아이스 메뉴 비중이 70%에서 25%로 급감합니다!\n\n1. 수제 뱅쇼, 핫초코, 밀크티 등 시즌 온음료를 카운터 중앙에 강조하세요.\n2. 매장 난방 온도를 22도로 유지하고 무릎담요를 카운터에 비치하세요.'
+      conditionText: '{location} 기온 35℃ 체감 폭염 특보',
+      badgeText: '☀️ 폭염 특보',
+      actionAdvice: '시원한 에이드와 대용량 1L 아이스 아메리카노 테이크아웃 수요가 급증합니다.',
+      quickChipText: '🥤 폭염 특수 얼음·음료 전략',
+      botAnswer: '폭염 날씨에는 1인 1음료 외에 대용량 테이크아웃 수요가 50% 늘어납니다!\n\n1. 제빙기 얼음 생산 속도를 체크하고 필요시 식용 얼음을 미리 확보하세요.\n2. 수박 주스, 청포도 에이드 등 갈증 해소형 과일 음료 배너를 걸어두세요.'
     },
     {
       weather: 'rain',
@@ -199,27 +154,41 @@ export const STORE_WEATHER_SCENARIOS: Record<string, WeatherCondition[]> = {
       botAnswer: '비 오는 날은 디저트 페어링(케이크+따뜻한 음료) 주문 비중이 42%까지 증가합니다!\n\n1. "비 내리는 날 전용 플레이리스트"로 매장 분위기를 차분하게 연출하세요.\n2. 따뜻한 라떼류와 구움과자 세트를 매장 입구 및 배민 첫 화면에 배치하세요.'
     },
     {
-      weather: 'heat',
+      weather: 'cold',
       title: '실시간 날씨 맞춤 브리핑',
-      conditionText: '{location} 기온 35℃ 체감 폭염',
-      badgeText: '☀️ 폭염',
-      actionAdvice: '시원한 에이드와 대용량 1L 아이스 아메리카노 테이크아웃 수요가 급증합니다.',
-      quickChipText: '🥤 폭염 특수 얼음·음료 전략',
-      botAnswer: '폭염 날씨에는 1인 1음료 외에 대용량 테이크아웃 수요가 50% 늘어납니다!\n\n1. 제빙기 얼음 생산 속도를 체크하고 필요시 식용 얼음을 미리 확보하세요.\n2. 수박 주스, 청포도 에이드 등 갈증 해소형 과일 음료 배너를 걸어두세요.'
+      conditionText: '{location} 현재 체감 기온 영하 5℃ 한파 특보',
+      badgeText: '🧊 강추위',
+      actionAdvice: '따뜻한 시그니처 핫음료 수요가 폭증합니다. 스팀 밀크 재고를 넉넉히 확인하세요.',
+      quickChipText: '🧣 한파 대비 메뉴 추천 팁',
+      botAnswer: '영하권 날씨에는 아이스 메뉴 비중이 70%에서 25%로 급감합니다!\n\n1. 수제 뱅쇼, 핫초코, 밀크티 등 시즌 온음료를 카운터 중앙에 강조하세요.\n2. 매장 난방 온도를 22도로 유지하고 무릎담요를 카운터에 비치하세요.'
     }
   ]
 };
 
-// 📍 저장된 주소 가져오기
-export function getSavedStoreLocation(storeKey: string): { district: string; branchName: string } {
-  const isChicken = storeKey.includes('chicken') || storeKey.includes('치킨');
+export function sanitizeStoreKey(input: any): string {
+  if (typeof input === 'string') return input.trim();
+  if (input && typeof input === 'object') {
+    if (typeof input.detail === 'string') return input.detail.trim();
+    if (typeof input.storeId === 'string') return input.storeId.trim();
+    if (typeof input.id === 'string') return input.id.trim();
+  }
+  if (typeof window !== 'undefined') {
+    const fromStorage = localStorage.getItem('localmate_store_id');
+    if (fromStorage && typeof fromStorage === 'string') return fromStorage;
+  }
+  return 'cafe';
+}
+
+export function getSavedStoreLocation(storeKey?: any): { district: string; branchName: string } {
+  const safeKey = sanitizeStoreKey(storeKey);
+  const isChicken = safeKey.includes('chicken') || safeKey.includes('치킨');
   const normalizedKey = isChicken ? 'chicken' : 'cafe';
 
-  const fallbackDistrict = normalizedKey === 'chicken' ? '대구 수성구' : '대구 중구';
-  const fallbackBranch = normalizedKey === 'chicken' ? '수성구점' : '중구점';
+  const defaultDistrict = normalizedKey === 'chicken' ? '대구 수성구' : '대구 중구';
+  const defaultBranch = normalizedKey === 'chicken' ? '수성구점' : '동성로본점';
 
   if (typeof window === 'undefined') {
-    return { district: fallbackDistrict, branchName: fallbackBranch };
+    return { district: defaultDistrict, branchName: defaultBranch };
   }
 
   let rawAddress = '';
@@ -238,30 +207,44 @@ export function getSavedStoreLocation(storeKey: string): { district: string; bra
     }
   }
 
+  // 예전 잘못된 주소(부산 남구, 대구 동구 등) 강제 필터링
   if (rawAddress) {
+    if (normalizedKey === 'chicken' && rawAddress.includes('부산')) {
+      rawAddress = '대구 수성구 범어동 45';
+      localStorage.setItem(`localmate_address_chicken`, rawAddress);
+    }
+    if (normalizedKey === 'cafe' && (rawAddress.includes('동구') || rawAddress.includes('부산'))) {
+      rawAddress = '대구 중구 동성로 12';
+      localStorage.setItem(`localmate_address_cafe`, rawAddress);
+    }
+
     const parsed = validateAndParseKoreanAddress(rawAddress);
     if (parsed.isValid) {
-      return { district: parsed.district, branchName: parsed.branchName };
+      return { 
+        district: parsed.district, 
+        branchName: normalizedKey === 'cafe' && parsed.district.includes('중구') ? '동성로본점' : parsed.branchName 
+      };
     }
   }
 
-  return { district: fallbackDistrict, branchName: fallbackBranch };
+  return { district: defaultDistrict, branchName: defaultBranch };
 }
 
-// 📍 현재 날씨 가져오기
-export function getCurrentWeatherScenario(storeNameOrId: string): WeatherCondition {
-  const isChicken = storeNameOrId.includes('치킨') || storeNameOrId.includes('chicken');
+// 📍 매장별 분리 날씨 반환 (카페=폭염, 치킨=우천)
+export function getCurrentWeatherScenario(storeNameOrId?: any): WeatherCondition {
+  const safeKey = sanitizeStoreKey(storeNameOrId);
+  const isChicken = safeKey.includes('치킨') || safeKey.includes('chicken');
   const storeKey = isChicken ? 'chicken' : 'cafe';
   const scenarios = STORE_WEATHER_SCENARIOS[storeKey];
 
   let slotIndex = 0;
   if (typeof window !== 'undefined') {
-    const overrideIndex = localStorage.getItem(`localmate_weather_index_${storeKey}`);
-    if (overrideIndex !== null) {
-      slotIndex = parseInt(overrideIndex, 10) || 0;
+    const storeWeather = localStorage.getItem(`localmate_weather_index_${storeKey}`);
+    if (storeWeather !== null) {
+      slotIndex = parseInt(storeWeather, 10) || 0;
     } else {
-      const now = new Date();
-      slotIndex = Math.floor(now.getMinutes() / 30) % scenarios.length;
+      // 기본적으로 0번 (치킨=우천, 카페=폭염)으로 고정되어 서로 완전히 다름
+      slotIndex = 0;
     }
   }
 
@@ -272,4 +255,12 @@ export function getCurrentWeatherScenario(storeNameOrId: string): WeatherConditi
     ...baseScenario,
     conditionText: baseScenario.conditionText.replace('{location}', district),
   };
+}
+
+export function setStoreWeatherIndex(storeKey: 'cafe' | 'chicken', index: number) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(`localmate_weather_index_${storeKey}`, index.toString());
+    window.dispatchEvent(new CustomEvent('weatherChange', { detail: { storeKey, index } }));
+    window.dispatchEvent(new CustomEvent('storeChange', { detail: storeKey }));
+  }
 }

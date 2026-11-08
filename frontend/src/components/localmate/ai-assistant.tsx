@@ -1,23 +1,27 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { Bot, Send, Sparkles, X, ChevronLeft, ChevronRight } from 'lucide-react'
-import { STORE_DASHBOARD_DATA, CAFE_REVIEWS, CHICKEN_REVIEWS, assistantResponses, type Review } from '@/lib/mock-data'
+import { CAFE_REVIEWS, CHICKEN_REVIEWS, assistantResponses, type Review } from '@/lib/mock-data'
 import { getCurrentWeatherScenario, getSavedStoreLocation } from '@/lib/weather-scenarios'
+import { getStoreProfitAnalysis } from '@/lib/recipe-data'
 import { cn } from '@/lib/utils'
 
 type Message = { role: 'user' | 'assistant'; content: string }
-
 type Point = { x: number; y: number }
+
+interface AiAssistantProps {
+  reviews?: Review[]
+  onGenerateAllDrafts?: () => Review[]
+}
 
 const FAB_SIZE = 64
 const EDGE_GAP = 24
 const PANEL_GAP = 12
-const PANEL_MAX_HEIGHT = 600
+const PANEL_MAX_HEIGHT = 620
 const DRAG_THRESHOLD = 5
 const KEY_STEP = 24
 
-// 기본 시작 매출 및 목표
 const BASE_FINANCIALS = {
   cafe: { today: 980000, month: 15200000, target: 20000000, delta: '+8.5%' },
   chicken: { today: 1284000, month: 18500000, target: 25000000, delta: '+12.4%' }
@@ -41,27 +45,21 @@ function getPanelLayout({ x, y }: Point) {
     ...(openAbove ? { bottom: vh - y + PANEL_GAP } : { top: y + FAB_SIZE + PANEL_GAP }),
   }
   const origin = `${openAbove ? 'bottom' : 'top'} ${alignLeft ? 'left' : 'right'}`
-  return { style: { ...style, transformOrigin: origin }, height: Math.min(PANEL_MAX_HEIGHT, Math.max(available, 280)) }
+  return { style: { ...style, transformOrigin: origin }, height: Math.min(PANEL_MAX_HEIGHT, Math.max(available, 300)) }
 }
 
-export function AiAssistant({
-  reviews: initialReviews,
-  onGenerateAllDrafts,
-}: {
-  reviews?: Review[]
-  onGenerateAllDrafts?: () => Review[]
-}) {
+export function AiAssistant({ reviews: initialReviews }: AiAssistantProps = {}) {
   const [open, setOpen] = useState(false)
   const [storeId, setStoreId] = useState('cafe')
-  const [currentReviews, setCurrentReviews] = useState<Review[]>([])
+  const [currentReviews, setCurrentReviews] = useState<Review[]>(() => initialReviews || [])
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
-  // 🎯 실시간 저장된 리뷰 데이터 로드
   const loadStoreReviews = (sId: string): Review[] => {
+    if (initialReviews && initialReviews.length > 0) return initialReviews
     if (typeof window === 'undefined') return sId === 'chicken' ? CHICKEN_REVIEWS : CAFE_REVIEWS
     const storageKey = `localmate_reviews_v12_${sId}`
     const saved = localStorage.getItem(storageKey)
@@ -74,47 +72,43 @@ export function AiAssistant({
     return sId === 'chicken' ? CHICKEN_REVIEWS : CAFE_REVIEWS
   }
 
-  // 🎯 실시간 누적 매출 데이터 로드 (오늘 매출, 이번 달 누적 매출, 목표 달성률)
-  const getLiveFinancials = (sId: string) => {
-    const isChicken = sId.includes('치킨') || sId.includes('chicken')
+  const getLiveFinancials = useCallback((sId: string) => {
+    const isChicken = sId === 'chicken' || sId.includes('치킨')
+    const key = isChicken ? 'chicken' : 'cafe'
     const base = isChicken ? BASE_FINANCIALS.chicken : BASE_FINANCIALS.cafe
 
-    if (typeof window === 'undefined') {
-      return {
-        todaySales: base.today,
-        monthSales: base.month,
-        targetSales: base.target,
-        percentage: Math.round((base.month / base.target) * 100),
-        delta: base.delta
-      }
+    if (typeof window !== 'undefined') {
+      const savedToday = localStorage.getItem(`localmate_today_sales_${key}`)
+      const savedMonth = localStorage.getItem(`localmate_month_sales_${key}`)
+      const savedTarget = localStorage.getItem(`localmate_target_sales_${key}`)
+
+      const todaySales = savedToday ? Number(savedToday) : base.today
+      const monthSales = savedMonth ? Number(savedMonth) : base.month
+      const targetSales = savedTarget ? Number(savedTarget) : base.target
+
+      const percentage = targetSales > 0 ? Math.min(100, Math.round((monthSales / targetSales) * 100)) : 0
+
+      return { todaySales, monthSales, targetSales, percentage, delta: base.delta }
     }
-
-    const savedToday = localStorage.getItem(`localmate_today_sales_${sId}`)
-    const savedMonth = localStorage.getItem(`localmate_month_sales_${sId}`)
-
-    const todaySales = savedToday ? Number(savedToday) : base.today
-    const monthSales = savedMonth ? Number(savedMonth) : base.month
-    const targetSales = base.target
-    const percentage = Math.min(100, Math.round((monthSales / targetSales) * 100))
 
     return {
-      todaySales,
-      monthSales,
-      targetSales,
-      percentage,
+      todaySales: base.today,
+      monthSales: base.month,
+      targetSales: base.target,
+      percentage: Math.round((base.month / base.target) * 100),
       delta: base.delta
     }
-  }
+  }, [])
 
-  // 🎯 지점명, 실시간 오늘 매출, 미답변 건수를 반영한 첫 인사말
   const generateGreeting = (sId: string, revs: Review[]) => {
-    const isChicken = sId.includes('치킨') || sId.includes('chicken')
+    const isChicken = sId === 'chicken' || sId.includes('치킨')
     const storeKey = isChicken ? 'chicken' : 'cafe'
     const { branchName } = getSavedStoreLocation(storeKey)
-    const fin = getLiveFinancials(sId)
+    const fin = getLiveFinancials(storeKey)
+    const weather = getCurrentWeatherScenario(storeKey)
     const unansweredCount = revs.filter((r) => !r.reply).length
 
-    let greeting = `사장님, 안녕하세요! LocalMate AI 업무 비서입니다. 오늘 ${branchName} 매출은 ${fin.todaySales.toLocaleString()}원으로 어제보다 ${fin.delta} 높아요.`
+    let greeting = `사장님, 안녕하세요! LocalMate AI 업무 비서입니다. 오늘 ${branchName} 날씨는 [${weather.badgeText}] 상태이며, 당일 매출은 ${fin.todaySales.toLocaleString()}원으로 집계되고 있습니다.`
     if (unansweredCount > 0) {
       greeting += ` 현재 확인이 필요한 미답변 리뷰가 ${unansweredCount}건 있어요.`
     } else {
@@ -124,7 +118,6 @@ export function AiAssistant({
     return greeting
   }
 
-  // 🎯 1. 리뷰 분석 요약 핸들러 (실시간 통계 반영)
   const buildReviewSummaryResponse = (revs: Review[]) => {
     const total = revs.length
     const unanswered = revs.filter((r) => !r.reply).length
@@ -135,9 +128,9 @@ export function AiAssistant({
     const positiveRate = total > 0 ? Math.round((positive / total) * 100) : 0
     const avgRating = total > 0 ? (revs.reduce((acc, c) => acc + (Number(c.rating) || 5), 0) / total).toFixed(1) : '0.0'
 
-    const isChicken = storeId.includes('치킨') || storeId.includes('chicken')
+    const isChicken = storeId === 'chicken' || storeId.includes('치킨')
     const posPoint = isChicken ? '바삭한 튀김 식감, 깨끗한 기름, 치즈볼 맛' : '원두 산미 밸런스, 버터 크로플, 꼼꼼한 포장'
-    const negPoint = isChicken ? '피크시간 배달 지연, 치킨 식음, 소스/치킨무 누락' : '식은 음료 온도, 배달 지연, 포장 누락'
+    const negPoint = isChicken ? '우천 배달 지연, 치킨 식음, 소스/치킨무 누락' : '식은 음료 온도, 배달 지연, 포장 누락'
 
     return `📊 [실시간 고객 리뷰 분석 요약]
 
@@ -155,7 +148,6 @@ export function AiAssistant({
 현재 미답변 리뷰 ${unanswered}건 중 평점 1~2점 불만 리뷰를 우선 검토하여 사과 및 재방문 보상 답글을 남겨주세요.`
   }
 
-  // 🎯 2. 단골 고객 통계 핸들러 (실제 orderCount 집계)
   const buildLoyaltySummaryResponse = (revs: Review[]) => {
     const total = revs.length
     let regularCount = 0
@@ -184,21 +176,7 @@ export function AiAssistant({
 전체 고객의 ${regularRate + repeatRate}%가 2회 이상 재주문 고객으로 충성도가 매우 높습니다! VIP 단골 고객 리뷰에 맞춤형 감사의 답글을 남기면 객단가 유지에 큰 도움이 됩니다.`
   }
 
-  // 🎯 3. 이번 달 주요 불만 요약
-  const getMonthlyComplaintSummary = (revs: Review[]) => {
-    const totalCount = revs.length
-    const negativeCount = revs.filter((r) => (Number(r.rating) || 5) <= 3).length
-
-    return `🚨 이번 달 총 ${totalCount}건의 리뷰 중 불만·개선요청 ${negativeCount}건을 분석했어요.
-
-1. 대기시간 지연 — 피크타임 배송 지연 집중
-2. 포장 누락 — 요청사항(소스, 사이드 등) 누락
-3. 음식 온도 — 배달 중 온도 저하 불만
-
-💡 피크타임 조리 예상시간 +10분 연장과 포장 체크리스트 점검을 추천드려요.`
-  }
-
-  // 🎯 4. 이번 주 매출 요약 (실시간 누적 매출 연동)
+  // 🎯 글자 잘림을 원천 방지하도록 각 항목을 단일 라인으로 명확히 배치한 텍스트 템플릿
   const getLiveSalesSummary = (sId: string) => {
     const fin = getLiveFinancials(sId)
     const diff = Math.max(0, fin.targetSales - fin.monthSales)
@@ -206,13 +184,41 @@ export function AiAssistant({
     return `💰 [실시간 매출 및 목표 달성 현황]
 
 • 오늘 발생 매출: ${fin.todaySales.toLocaleString()}원
-• 이번 달 누적 매출: ${fin.monthSales.toLocaleString()}원 (목표: ${fin.targetSales.toLocaleString()}원)
-• 목표 달성률: ${fin.percentage}% 달성 (남은 금액: ${diff.toLocaleString()}원)
+• 이번 달 누적 매출: ${fin.monthSales.toLocaleString()}원
+• 설정 목표 금액: ${fin.targetSales.toLocaleString()}원
+• 목표 달성률: ${fin.percentage}% (남은 금액: ${diff.toLocaleString()}원)
 
-현재 주문 유입 추세로 볼 때 이번 달 매출 목표 달성률은 매우 안정적으로 순항 중입니다!`
+${
+  fin.percentage >= 80 
+    ? '목표 달성을 목전에 두고 있습니다! 현재 기세를 유지하세요.' 
+    : fin.percentage >= 40 
+      ? '안정적으로 순항 중입니다. 피크 타임 프로모션으로 달성 속도를 높여보세요!'
+      : '설정하신 목표 달성을 위해 타임세일 및 세트 메뉴 프로모션을 적극 권장합니다.'
+}`
   }
 
-  // 실시간 동기화 리스너
+  const buildMenuProfitSummaryResponse = (sId: string) => {
+    const profitList = getStoreProfitAnalysis(sId)
+    if (profitList.length === 0) return '현재 등록된 메뉴의 수익성 데이터를 분석 중입니다.'
+
+    const totalSold = profitList.reduce((acc, cur) => acc + cur.soldCount, 0)
+    const totalNetProfit = profitList.reduce((acc, cur) => acc + cur.totalNetProfit, 0)
+    const avgMargin = Number((profitList.reduce((acc, cur) => acc + cur.marginRate, 0) / profitList.length).toFixed(1))
+
+    const topProfit = [...profitList].sort((a, b) => b.netProfit - a.netProfit)[0]
+    const topSold = [...profitList].sort((a, b) => b.soldCount - a.soldCount)[0]
+
+    return `🍗 [실시간 메뉴 수익성 & 마진 분석]
+
+• 전체 메뉴 평균 마진율: ${avgMargin}%
+• 실시간 추가 출고량: 총 ${totalSold}건 (출고 순이익: ${totalNetProfit.toLocaleString()}원)
+• 🥇 건당 순이익 1위: '${topProfit?.name}' (건당 ${topProfit?.netProfit.toLocaleString()}원, 마진율 ${topProfit?.marginRate}%)
+• 📦 최다 출고 메뉴: '${topSold?.name}' (${topSold?.soldCount}건 출고 완료)
+
+💡 AI 경영 솔루션:
+마진율이 높은 '${topProfit?.name}'을(를) 활용한 세트 메뉴를 배민/쿠팡이츠 상단에 배치하면 객단가와 순이익을 동시에 확보할 수 있습니다.`
+  }
+
   useEffect(() => {
     const savedStore = localStorage.getItem('localmate_store_id') || 'cafe'
     setStoreId(savedStore)
@@ -229,34 +235,34 @@ export function AiAssistant({
       setMessages([{ role: 'assistant', content: generateGreeting(newStore, freshRevs) }])
     }
 
-    const handleReviewSync = () => {
-      const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
-      const freshRevs = loadStoreReviews(currentStore)
-      setCurrentReviews(freshRevs)
-    }
-
-    const handleSalesSync = () => {
-      const currentStore = localStorage.getItem('localmate_store_id') || 'cafe'
-      const freshRevs = loadStoreReviews(currentStore)
+    const handleFinancialAndWeatherSync = () => {
+      const curStore = localStorage.getItem('localmate_store_id') || 'cafe'
+      const freshRevs = loadStoreReviews(curStore)
       setCurrentReviews(freshRevs)
     }
 
     window.addEventListener('storeChange', handleStoreSync)
-    window.addEventListener('reviewsUpdated', handleReviewSync)
-    window.addEventListener('localmate_sales_updated', handleSalesSync)
-    window.addEventListener('localmate_sales_reset', handleSalesSync)
-    window.addEventListener('settingsChange', handleStoreSync)
-    window.addEventListener('storage', handleSalesSync)
+    window.addEventListener('weatherChange', handleFinancialAndWeatherSync)
+    window.addEventListener('reviewsUpdated', handleFinancialAndWeatherSync)
+    window.addEventListener('localmate_sales_updated', handleFinancialAndWeatherSync)
+    window.addEventListener('localmate_sales_reset', handleFinancialAndWeatherSync)
+    window.addEventListener('targetUpdated', handleFinancialAndWeatherSync)
+    window.addEventListener('stockUpdated', handleFinancialAndWeatherSync)
+    window.addEventListener('menuUpdated', handleFinancialAndWeatherSync)
+    window.addEventListener('storage', handleFinancialAndWeatherSync)
 
     return () => {
       window.removeEventListener('storeChange', handleStoreSync)
-      window.removeEventListener('reviewsUpdated', handleReviewSync)
-      window.removeEventListener('localmate_sales_updated', handleSalesSync)
-      window.removeEventListener('localmate_sales_reset', handleSalesSync)
-      window.removeEventListener('settingsChange', handleStoreSync)
-      window.removeEventListener('storage', handleSalesSync)
+      window.removeEventListener('weatherChange', handleFinancialAndWeatherSync)
+      window.removeEventListener('reviewsUpdated', handleFinancialAndWeatherSync)
+      window.removeEventListener('localmate_sales_updated', handleFinancialAndWeatherSync)
+      window.removeEventListener('localmate_sales_reset', handleFinancialAndWeatherSync)
+      window.removeEventListener('targetUpdated', handleFinancialAndWeatherSync)
+      window.removeEventListener('stockUpdated', handleFinancialAndWeatherSync)
+      window.removeEventListener('menuUpdated', handleFinancialAndWeatherSync)
+      window.removeEventListener('storage', handleFinancialAndWeatherSync)
     }
-  }, [])
+  }, [getLiveFinancials])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
@@ -273,16 +279,15 @@ export function AiAssistant({
 
   const unifiedQuickActions = [
     currentWeather.quickChipText,
-    '✨ 리뷰 분석 요약',
-    '✨ 이번 달 주요 불만 요약',
     '✨ 이번 주 매출 요약해줘',
+    '✨ 메뉴 수익성 분석',
+    '✨ 리뷰 분석 요약',
     '✨ 단골 고객 통계'
   ]
 
   function send(text: string) {
     const cleanText = text.replace('✨ ', '').trim()
-    const content = cleanText
-    if (!content || typing) return
+    if (!cleanText || typing) return
 
     setMessages((prev) => [...prev, { role: 'user', content: text }])
     setInput('')
@@ -293,31 +298,23 @@ export function AiAssistant({
       const cleanChipWeather = currentWeather.quickChipText.replace('✨ ', '').trim()
       const freshReviews = loadStoreReviews(storeId)
 
-      if (content.includes('리뷰 분석') || content.includes('리뷰 요약') || content.includes('리뷰 분석 요약')) {
-        reply = buildReviewSummaryResponse(freshReviews)
-      } else if (content.includes('단골') || content.includes('고객 통계')) {
-        reply = buildLoyaltySummaryResponse(freshReviews)
-      } else if (content.includes('불만 요약') || content.includes('불만')) {
-        reply = getMonthlyComplaintSummary(freshReviews)
-      } else if (content.includes('매출')) {
-        // 🎯 실시간 누적 매출 반영 응답
-        reply = getLiveSalesSummary(storeId)
-      } else if (
-        content === cleanChipWeather ||
-        content.includes('날씨') ||
-        content.includes('비 오는 날') ||
-        content.includes('폭설') ||
-        content.includes('폭염') ||
-        content.includes('한파')
-      ) {
+      if (cleanText === cleanChipWeather || cleanText.includes('날씨') || cleanText.includes('팁')) {
         reply = currentWeather.botAnswer
+      } else if (cleanText.includes('매출') || cleanText.includes('목표') || cleanText.includes('누적')) {
+        reply = getLiveSalesSummary(storeId)
+      } else if (cleanText.includes('수익성') || cleanText.includes('마진') || cleanText.includes('메뉴 수익')) {
+        reply = buildMenuProfitSummaryResponse(storeId)
+      } else if (cleanText.includes('리뷰 분석') || cleanText.includes('리뷰 요약')) {
+        reply = buildReviewSummaryResponse(freshReviews)
+      } else if (cleanText.includes('단골') || cleanText.includes('고객 통계')) {
+        reply = buildLoyaltySummaryResponse(freshReviews)
       } else {
         reply = assistantResponses[text] ?? assistantResponses[`✨ ${text}`] ?? buildReviewSummaryResponse(freshReviews)
       }
 
       setMessages((prev) => [...prev, { role: 'assistant', content: reply }])
       setTyping(false)
-    }, 600)
+    }, 450)
   }
 
   const [fabPos, setFabPos] = useState<Point | null>(() => {
@@ -388,9 +385,10 @@ export function AiAssistant({
 
   return (
     <>
+      {/* 🎯 비서 창 가로 규격을 max-w-[420px]로 넉넉하게 확장 */}
       <div
         className={cn(
-          'fixed z-50 w-[calc(100vw-2rem)] max-w-sm transition-[opacity,transform] duration-300 ease-out font-sans',
+          'fixed z-50 w-[calc(100vw-2rem)] max-w-[420px] transition-[opacity,transform] duration-300 ease-out font-sans',
           !panelLayout && 'bottom-24 right-6 origin-bottom-right',
           open ? 'opacity-100 scale-100' : 'pointer-events-none opacity-0 scale-95'
         )}
@@ -400,10 +398,10 @@ export function AiAssistant({
         aria-hidden={!open}
       >
         <div
-          className="flex flex-col h-[min(600px,calc(100vh-8rem))] rounded-3xl border bg-card shadow-2xl overflow-hidden"
+          className="flex flex-col h-[min(620px,calc(100vh-8rem))] rounded-3xl border bg-card shadow-2xl overflow-hidden"
           style={panelLayout ? { height: panelLayout.height } : undefined}
         >
-          {/* 헤더 (실시간 미답변 건수 뱃지) */}
+          {/* 헤더 */}
           <div className="flex items-center gap-3 px-4 py-3.5 bg-primary text-primary-foreground">
             <div className="size-9 rounded-full bg-white/15 flex items-center justify-center">
               <Bot className="size-5" aria-hidden="true" />
@@ -435,7 +433,7 @@ export function AiAssistant({
             </button>
           </div>
 
-          {/* 대화 메시지 목록 */}
+          {/* 대화 메시지 목록 (break-keep 적용으로 한글 단어 끊김 방지) */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-background" aria-live="polite">
             {messages.map((m, i) => (
               <div key={i} className={cn('flex gap-2', m.role === 'user' ? 'justify-end' : 'justify-start')}>
@@ -446,7 +444,7 @@ export function AiAssistant({
                 )}
                 <div
                   className={cn(
-                    'max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-line',
+                    'max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-line break-keep',
                     m.role === 'user'
                       ? 'bg-primary text-primary-foreground rounded-br-md'
                       : 'bg-card border rounded-bl-md shadow-sm'
@@ -532,7 +530,7 @@ export function AiAssistant({
                 }}
                 rows={1}
                 tabIndex={open ? 0 : -1}
-                placeholder="무엇이든 물어보세요 (예: 이번 주 매출 요약해줘)"
+                placeholder="무엇이든 물어보세요 (예: 매출 요약해줘, 메뉴 수익성)"
                 className="flex-1 resize-none max-h-28 rounded-xl border bg-background px-3 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               />
               <button
@@ -549,7 +547,7 @@ export function AiAssistant({
         </div>
       </div>
 
-      {/* 우측 하단 플로팅 FAB 버튼 */}
+      {/* 플로팅 FAB 버튼 */}
       <button
         type="button"
         onClick={handleFabClick}
@@ -560,8 +558,6 @@ export function AiAssistant({
         onKeyDown={handleFabKeyDown}
         aria-expanded={open}
         aria-label={open ? 'AI 비서 닫기' : 'AI 비서 열기'}
-        aria-description="드래그하거나 방향키로 위치를 옮길 수 있어요"
-        title="드래그하여 위치 이동"
         style={fabPos ? { left: fabPos.x, top: fabPos.y } : undefined}
         className={cn(
           'fixed z-50 size-16 flex flex-col items-center justify-center gap-0.5 rounded-full bg-primary text-primary-foreground shadow-xl shadow-primary/30 ring-4 ring-primary/15 touch-none select-none transition-[transform,background-color,box-shadow]',

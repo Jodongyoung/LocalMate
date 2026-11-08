@@ -8,6 +8,7 @@ import { MarketingView } from '@/components/marketing/marketing-view' // 🎯 1.
 import { OperationsView } from '@/components/operations/view'
 import { TasksView } from '@/components/tasks/view'
 import { SettingsView } from '@/components/settings/view'
+import { MenuProfitView } from '@/components/menu/menu-profit-view'
 
 // 에러 경계 컴포넌트 추가
 function ErrorBoundary({ children }: { children: React.ReactNode }) {
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="/tasks" element={<TasksView />} />
             <Route path="/settings" element={<SettingsView />} />
             <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="/menu-profit" element={<MenuProfitView />} />
           </Routes>
         </Layout>
       </BrowserRouter>

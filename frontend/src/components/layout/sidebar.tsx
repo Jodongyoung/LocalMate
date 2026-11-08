@@ -9,6 +9,7 @@ import {
   Settings,
   LayoutGrid,
   Sparkles,
+  DollarSign,
   ChevronDown,
   ChevronUp,
   ChevronLeft,
@@ -152,6 +153,7 @@ export function Sidebar({
     { id: 'reviews', label: '고객 리뷰 관리', icon: MessageSquare, href: '/reviews' },
     { id: 'marketing', label: 'AI SNS 마케팅', icon: Sparkles, href: '/marketing' },
     { id: 'operations', label: '매장 운영 분석', icon: TrendingUp, href: '/operations' },
+    { id: 'menu-profit', label: '메뉴 수익성 분석', icon: DollarSign, href: '/menu-profit' },
     { id: 'tasks', label: 'AI 업무 및 승인', icon: ClipboardList, href: '/tasks', badge: pendingTasksCount },
     { id: 'settings', label: '매장 설정', icon: Settings, href: '/settings' },
   ]
