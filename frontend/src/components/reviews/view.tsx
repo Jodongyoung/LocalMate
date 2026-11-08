@@ -198,33 +198,6 @@ const DEFAULT_CAFE_REVIEWS: any[] = [
   }
 ]
 
-const DIVERSE_MENU_ORDERS = {
-  chicken: [
-    { name: '황금 후라이드 치킨', price: 19000 },
-    { name: '매콤달콤 양념 치킨', price: 20500 },
-    { name: '단짠 갈릭 간장 치킨', price: 21000 },
-    { name: '스모크 고추 바사삭', price: 21500 },
-    { name: '바삭 순살 파닭', price: 22000 },
-    { name: '특제 모짜 치즈볼', price: 5500 },
-    { name: '수제 바베큐 윙봉', price: 10500 },
-    { name: '트러플 감자튀김', price: 5000 },
-    { name: '치즈닝 떡볶이', price: 6500 },
-    { name: '생맥주 1000cc', price: 7000 }
-  ],
-  cafe: [
-    { name: '아메리카노 (ICED)', price: 4500 },
-    { name: '카페라떼 (ICED)', price: 5200 },
-    { name: '바닐라빈 라떼', price: 5800 },
-    { name: '제주 말차 라떼', price: 6200 },
-    { name: '얼그레이 피치 레몬티', price: 5500 },
-    { name: '생딸기 바스크 케이크', price: 7800 },
-    { name: '버터 크로플 세트', price: 5500 },
-    { name: '수제 에그타르트 세트', price: 6500 },
-    { name: '초코 퍼지 브라우니', price: 5000 },
-    { name: '콜드브루 원액 보틀', price: 14500 }
-  ]
-}
-
 const MOCK_REVIEW_TEMPLATES = {
   positive: {
     cafe: [
@@ -311,12 +284,10 @@ const getInitialStoreId = (): string => {
   return 'cafe'
 }
 
-// 🎯 시간대별 차트 및 TOP 5 판매량 갱신 함수 (매출 합산은 processStoreOrder가 전담하여 중복 방지)
 const triggerHourlyAndTopMenusUpdate = (storeId: string, amount: number, menuName: string) => {
   const currentHour = new Date().getHours()
   const timeKey = `${currentHour < 10 ? '0' : ''}${currentHour}:00`
 
-  // 1. 시간대별 차트 데이터 갱신
   const savedHourly = localStorage.getItem(`localmate_hourly_sales_${storeId}`)
   if (savedHourly) {
     try {
@@ -331,7 +302,6 @@ const triggerHourlyAndTopMenusUpdate = (storeId: string, amount: number, menuNam
     } catch (e) {}
   }
 
-  // 2. 인기 메뉴 TOP 5 판매량 갱신
   const savedTop = localStorage.getItem(`localmate_top_menus_${storeId}`)
   if (savedTop) {
     try {
@@ -508,16 +478,16 @@ export function ReviewsView() {
     return applyForbiddenWordsFilter(`고객님, 안녕하십니까. ${storeLabel}입니다.\n정성껏 준비한 메뉴가 큰 만족을 드린 것 같아 기쁩니다.\n${highlight}\n앞으로도 변함없는 맛으로 보답하겠습니다.`, selectedStoreId)
   }
 
-  // 🎯 1. [가상 주문 인입] - 단일 주문 파이프라인(processStoreOrder)으로 재고 차감 + 매출 누적 + 수익성 분석을 원자적으로 동기화
+  // 🎯 [완벽 연동 핵심] 가상 주문 인입 시 재고 잔여량을 엄격히 검사하고 0개면 주문 원천 차단!
   const handleQuickOrder = () => {
-    const isCafe = selectedStoreId === 'cafe'
-
-    // A. 현재 매장에 등록된 실제 재고 목록에서 주문 가능한 메뉴 탐색
+    // 1. 현재 매장의 실제 재고 데이터 읽어오기
     let activeStockItem: any = null
+    let stockList: any[] = []
     try {
       const savedStock = localStorage.getItem(`localmate_stock_v5_${selectedStoreId}`)
       if (savedStock) {
-        const stockList: any[] = JSON.parse(savedStock)
+        stockList = JSON.parse(savedStock)
+        // 재고가 1개 이상 남아있는 메뉴들만 필터링
         const inStock = stockList.filter((s: any) => (s.current ?? s.initial) > 0)
         if (inStock.length > 0) {
           activeStockItem = inStock[Math.floor(Math.random() * inStock.length)]
@@ -525,36 +495,32 @@ export function ReviewsView() {
       }
     } catch (e) {}
 
-    let menuName = ''
-    let menuPrice = 0
-
-    if (activeStockItem) {
-      menuName = activeStockItem.name
-      menuPrice = Number(activeStockItem.price) || (isCafe ? 4500 : 19000)
-    } else {
-      const pool = isCafe ? DIVERSE_MENU_ORDERS.cafe : DIVERSE_MENU_ORDERS.chicken
-      const fallback = pool[Math.floor(Math.random() * pool.length)]
-      menuName = fallback.name
-      menuPrice = fallback.price
-    }
-
-    // B. 단일 주문 파이프라인 가동: 재고 차감(-1) + 당일/월 누적 매출 가산 + 실시간 브로드캐스팅
-    const success = processStoreOrder(selectedStoreId, menuName, 1)
-
-    if (!success && activeStockItem && activeStockItem.current <= 0) {
-      setInfoMessage(`⚠️ 현재 모든 메뉴의 재고가 소진되었습니다. [AI 업무 및 승인] 탭에서 시뮬레이션을 초기화해주세요.`)
-      setTimeout(() => setInfoMessage(null), 3500)
+    // 2. 만약 남아있는 재고가 아예 없거나 모든 메뉴가 0개인 경우 즉시 차단!
+    if (!activeStockItem || stockList.length === 0 || stockList.every((s: any) => (s.current ?? s.initial) <= 0)) {
+      setInfoMessage(`🛑 [주문 차단] 현재 모든 메뉴의 재고가 완전히 소진되었습니다! [AI 업무 및 승인] 탭에서 시뮬레이션을 초기화하거나 재고를 채워주세요.`)
+      setTimeout(() => setInfoMessage(null), 4000)
       return
     }
 
-    // C. 시간대별 차트 및 TOP 5 랭킹 동기화
+    const menuName = activeStockItem.name
+    const menuPrice = Number(activeStockItem.price) || 15000
+
+    // 3. 단일 주문 파이프라인 가동 (재고 차감 및 매출 누적)
+    const success = processStoreOrder(selectedStoreId, menuName, 1)
+
+    if (!success) {
+      setInfoMessage(`🛑 [주문 차단] '${menuName}'의 잔여 재고가 부족하여 가상 주문을 체결할 수 없습니다!`)
+      setTimeout(() => setInfoMessage(null), 4000)
+      return
+    }
+
+    // 4. 시간대별 차트 및 TOP 5 랭킹 동기화
     triggerHourlyAndTopMenusUpdate(selectedStoreId, menuPrice, menuName)
 
     setInfoMessage(`⚡ [배달 주문 인입] '${menuName}' (+${menuPrice.toLocaleString()}원) 결제 완료! 재고 차감(-1), 대시보드 매출, 메뉴 수익성이 실시간 동기화되었습니다.`)
     setTimeout(() => setInfoMessage(null), 3500)
   }
 
-  // 🎯 2. [가상 리뷰 생성] - CS·감성 분석 전용 (매출/재고 변동 없음)
   const handleCreateMockReview = () => {
     const isCafe = selectedStoreId === 'cafe'
     const photoPool = isCafe ? CAFE_PHOTOS : CHICKEN_PHOTOS
@@ -782,7 +748,6 @@ export function ReviewsView() {
             
             <div className="w-px h-6 bg-slate-200 mx-2"></div>
             
-            {/* 🎯 1. 가상 주문 인입 (단일 파이프라인 연동: 재고 차감 + 대시보드 매출 + 메뉴 수익성 순익 동시 가산) */}
             <button
               onClick={handleQuickOrder}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition shadow-xs"
@@ -792,7 +757,6 @@ export function ReviewsView() {
               <span>가상 주문 인입</span>
             </button>
 
-            {/* 🎯 2. 가상 리뷰 생성 (CS·감성 분석 전용, 매출/재고 변동 없음) */}
             <button
               onClick={handleCreateMockReview}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition shadow-xs"

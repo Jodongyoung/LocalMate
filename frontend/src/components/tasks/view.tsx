@@ -17,10 +17,11 @@ import {
   Trash2, 
   FileSpreadsheet, 
   CheckSquare, 
-  Square
+  Square,
+  Zap
 } from 'lucide-react'
 import { getCurrentWeatherScenario, sanitizeStoreKey } from '@/lib/weather-scenarios'
-import { processStoreOrder } from '@/lib/recipe-data'
+import { processStoreOrder, resetIngredientsToDefault } from '@/lib/recipe-data'
 
 export interface MenuItem {
   name: string
@@ -366,10 +367,12 @@ export function TasksView() {
     loadStoreData(savedStore)
 
     const handleSync = (e: Event) => {
-      const customEvent = e as CustomEvent<string>
-      const nextStore = customEvent.detail || localStorage.getItem('localmate_store_id') || 'cafe'
-      loadStoreData(nextStore)
-      setIsEditingStock(false)
+      const customEvent = e as CustomEvent<any>
+      const nextStore = customEvent.detail?.storeId || customEvent.detail || localStorage.getItem('localmate_store_id') || 'cafe'
+      if (typeof nextStore === 'string') {
+        loadStoreData(nextStore)
+        setIsEditingStock(false)
+      }
     }
 
     const handleWeatherSync = () => {
@@ -378,10 +381,15 @@ export function TasksView() {
     }
 
     window.addEventListener('storeChange', handleSync)
+    window.addEventListener('stockUpdated', handleSync)
+    window.addEventListener('menuUpdated', handleSync)
     window.addEventListener('weatherChange', handleWeatherSync)
     window.addEventListener('storage', handleSync)
+
     return () => {
       window.removeEventListener('storeChange', handleSync)
+      window.removeEventListener('stockUpdated', handleSync)
+      window.removeEventListener('menuUpdated', handleSync)
       window.removeEventListener('weatherChange', handleWeatherSync)
       window.removeEventListener('storage', handleSync)
     }
@@ -408,19 +416,15 @@ export function TasksView() {
     window.dispatchEvent(new CustomEvent('pendingTasksUpdated', { detail: pendingCount }))
   }
 
-  // 🚀 [연동 핵심] 판매 출고 시 단일 주문 파이프라인(processStoreOrder) 가동
   const handleOrderDeduct = (item: StockItem) => {
     if (item.current <= 0) return
 
-    // 1. 재고 차감 + 매출 누적 + 이벤트 발행 일원화 처리
     processStoreOrder(selectedStoreId, item.name, item.perOrder)
 
-    // 2. 컴포넌트 내부 로컬 잔여 수량 동기화
     const nextCurrent = Math.max(0, item.current - item.perOrder)
     const updatedStock = stockItems.map(s => s.id === item.id ? { ...s, current: nextCurrent } : s)
     let updatedProposals = [...proposals]
 
-    // 3. 소진 임박 / 완전 품절 위기 대응 카드 생성
     const threshold = item.perOrder * 2
     if (nextCurrent > 0 && nextCurrent <= threshold) {
       const warningTaskId = `task-stock-warning-${item.id}`
@@ -608,18 +612,24 @@ export function TasksView() {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
+  // 🎯 [연동 완료] 시뮬레이션 초기화 시 완제품 재고 + 식자재 원자재 재고를 동시에 기본값으로 꽉 채움
   const handleResetSimulation = () => {
-    if (confirm('현재 매장의 메뉴 준비 수량과 결재 제안 카드만 기본값으로 초기화하시겠습니까?\n(누적된 매출과 전산표 통계는 유지됩니다)')) {
+    if (confirm('현재 매장의 메뉴 준비 수량, 식자재 재고 및 결재 제안 카드를 모두 기본값으로 초기화하시겠습니까?')) {
       const isCafe = selectedStoreId === 'cafe'
       const defaultStock = isCafe ? STORE_DEFAULT_STOCKS.cafe : STORE_DEFAULT_STOCKS.chicken
       const defaultPool = isCafe ? STORE_MENU_POOLS.cafe : STORE_MENU_POOLS.chicken
       
+      // 1. FR-M03 식자재(원자재) 재고 및 단가 100% 롤백 함수 호출
+      resetIngredientsToDefault(selectedStoreId)
+
+      // 2. 기상 시나리오 및 기본 프로모션 태스크 재생성
       const weatherTask = getWeatherDynamicProposal(selectedStoreId)
       const promoTask = isCafe ? STORE_BASE_PROMOS.cafe : STORE_BASE_PROMOS.chicken
       const defaultProposals = [weatherTask, promoTask]
       
       setIsEditingStock(false)
       syncAndSave(defaultProposals, defaultStock, defaultPool)
+      alert('완제품 메뉴 재고와 식자재 원자재 재고가 모두 초기 기본값으로 완벽히 채워졌습니다!')
     }
   }
 
@@ -701,7 +711,6 @@ export function TasksView() {
               <span className="text-[11px] text-slate-400 font-normal">| POS 실시간 연동 ({stockItems.length}/5)</span>
             </div>
 
-            {/* 🎯 [단일화 완료] 메뉴판 파일 업로드 버튼 1개만 깔끔하게 배치 */}
             <div className="flex items-center gap-2">
               <input 
                 type="file" 
