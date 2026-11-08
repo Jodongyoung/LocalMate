@@ -10,7 +10,7 @@ export interface IngredientItem {
   expiryDays: number      // 유통기한 잔여 (일)
 }
 
-// 📋 메뉴 레시피 구성 성분
+// 📋 메뉴 레시피 구성 성분 (BOM)
 export interface RecipeComponent {
   ingredientId: string
   amount: number          // 1회 조리 시 소모량
@@ -22,52 +22,61 @@ export interface MenuProfitItem {
   name: string
   category: string
   price: number           // 판매가 (원)
-  packageCost: number     // 포장 용기 및 부자재비 (원)
+  packageCost: number     // 포장 부자재비 (원)
   recipe: RecipeComponent[]
 }
 
-// 📊 계산된 메뉴 수익성 분석 결과
+// 📊 메뉴 수익성 분석 결과 (FR-M02)
 export interface CalculatedMenuProfit {
   id: string
   name: string
   category: string
   price: number
-  ingredientCost: number  // 총 식자재 원가 (원)
-  packageCost: number     // 포장 부자재비 (원)
-  platformFee: number     // 배달 플랫폼 수수료 (9.8%)
-  netProfit: number       // 건당 예상 순이익 (원)
-  marginRate: number      // 마진율 (%)
-  soldCount: number       // 당일 실제 누적 판매량
-  totalNetProfit: number  // 당일 누적 총 순이익 (순이익 × 판매량)
-  totalRevenue: number    // 당일 총 매출액 (판매가 × 판매량)
+  ingredientCost: number
+  packageCost: number
+  platformFee: number
+  netProfit: number
+  marginRate: number
+  soldCount: number
+  totalNetProfit: number
+  totalRevenue: number
   profitRankType: 'high_profit' | 'volume_driver' | 'low_margin'
 }
 
-// 🌐 글로벌 통합 식자재 마스터 사전
+// 📦 식자재 폐기 위험 및 발주 추천 분석 결과 (FR-M03)
+export interface IngredientAnalysisItem extends IngredientItem {
+  totalValue: number           // 총 재고액 (수량 × 단가)
+  isLowStock: boolean          // 안전재고 미달 여부
+  recommendedOrder: number     // AI 적정 발주 추천량
+  expiryStatus: 'danger' | 'warning' | 'safe' // D-2 이하 위험, D-4 이하 주의, 정상
+  expectedLoss: number         // 폐기 시 예상 손실액
+}
+
+// 🌐 글로벌 통합 표준 식자재 마스터 사전
 export const ALL_MASTER_INGREDIENTS: Record<string, IngredientItem> = {
   // 카페 원재료
   'ing-coffee-bean': { id: 'ing-coffee-bean', name: '하우스 블렌드 원두', category: '원두', unit: 'g', costPerUnit: 25, currentStock: 3500, safetyStock: 1000, expiryDays: 45 },
-  'ing-fresh-milk': { id: 'ing-fresh-milk', name: '바리스타 생우유 1L', category: '유제품', unit: 'ml', costPerUnit: 2.4, currentStock: 8000, safetyStock: 3000, expiryDays: 4 },
-  'ing-vanilla-syrup': { id: 'ing-vanilla-syrup', name: '마다가스카르 바닐라빈 시럽', category: '시럽', unit: 'ml', costPerUnit: 18, currentStock: 1200, safetyStock: 500, expiryDays: 90 },
+  'ing-fresh-milk': { id: 'ing-fresh-milk', name: '바리스타 생우유 1L', category: '유제품', unit: 'ml', costPerUnit: 2.4, currentStock: 4800, safetyStock: 3000, expiryDays: 2 },
+  'ing-vanilla-syrup': { id: 'ing-vanilla-syrup', name: '바닐라빈 시럽', category: '시럽', unit: 'ml', costPerUnit: 18, currentStock: 1200, safetyStock: 500, expiryDays: 90 },
   'ing-matcha-powder': { id: 'ing-matcha-powder', name: '제주 유기농 말차 파우더', category: '파우더', unit: 'g', costPerUnit: 35, currentStock: 800, safetyStock: 300, expiryDays: 60 },
   'ing-earlgrey-tea': { id: 'ing-earlgrey-tea', name: '얼그레이 피치 레몬 베이스', category: '티베이스', unit: 'g', costPerUnit: 15, currentStock: 1500, safetyStock: 500, expiryDays: 60 },
-  'ing-croffle-dough': { id: 'ing-croffle-dough', name: '프랑스 버터 크루아상 생지', category: '베이커리', unit: '개', costPerUnit: 1400, currentStock: 45, safetyStock: 20, expiryDays: 14 },
-  'ing-strawberry-cake': { id: 'ing-strawberry-cake', name: '생딸기 바스크 케이크 완제', category: '베이커리', unit: '조각', costPerUnit: 3400, currentStock: 18, safetyStock: 10, expiryDays: 2 },
+  'ing-croffle-dough': { id: 'ing-croffle-dough', name: '프랑스 버터 크루아상 생지', category: '베이커리', unit: '개', costPerUnit: 1400, currentStock: 12, safetyStock: 20, expiryDays: 1 },
+  'ing-strawberry-cake': { id: 'ing-strawberry-cake', name: '생딸기 바스크 케이크 완제', category: '베이커리', unit: '조각', costPerUnit: 3400, currentStock: 8, safetyStock: 10, expiryDays: 2 },
   'ing-egg-tart': { id: 'ing-egg-tart', name: '수제 에그타르트 생지(2구)', category: '베이커리', unit: '세트', costPerUnit: 2100, currentStock: 26, safetyStock: 15, expiryDays: 5 },
 
   // 치킨 및 사이드 원재료
-  'ing-raw-chicken': { id: 'ing-raw-chicken', name: '국내산 10호 신선육', category: '원육', unit: '마리', costPerUnit: 5800, currentStock: 48, safetyStock: 20, expiryDays: 3 },
+  'ing-raw-chicken': { id: 'ing-raw-chicken', name: '국내산 10호 신선육', category: '원육', unit: '마리', costPerUnit: 5800, currentStock: 18, safetyStock: 25, expiryDays: 2 },
   'ing-fry-powder': { id: 'ing-fry-powder', name: '크리스피 전용 파우더', category: '파우더', unit: 'g', costPerUnit: 5.5, currentStock: 12000, safetyStock: 4000, expiryDays: 120 },
-  'ing-fry-oil': { id: 'ing-fry-oil', name: '카놀라 튀김 전용유 18L', category: '유지류', unit: 'ml', costPerUnit: 3.2, currentStock: 25000, safetyStock: 10000, expiryDays: 60 },
+  'ing-fry-oil': { id: 'ing-fry-oil', name: '카놀라 튀김 전용유 18L', category: '유지류', unit: 'ml', costPerUnit: 3.2, currentStock: 14000, safetyStock: 10000, expiryDays: 60 },
   'ing-sweet-sauce': { id: 'ing-sweet-sauce', name: '특제 매콤달콤 양념소스', category: '소스', unit: 'g', costPerUnit: 6.8, currentStock: 4500, safetyStock: 1500, expiryDays: 60 },
-  'ing-garlic-sauce': { id: 'ing-garlic-sauce', name: '단짠 갈릭 간장 소스', category: '소스', unit: 'g', costPerUnit: 6.2, currentStock: 4000, safetyStock: 1500, expiryDays: 60 },
-  'ing-cheese-ball': { id: 'ing-cheese-ball', name: '모짜렐라 치즈볼 완제(5개입)', category: '사이드', unit: '세트', costPerUnit: 1800, currentStock: 38, safetyStock: 20, expiryDays: 90 },
-  'ing-wing-stick': { id: 'ing-wing-stick', name: '바베큐 윙봉(6조각)', category: '원육', unit: '세트', costPerUnit: 4200, currentStock: 22, safetyStock: 15, expiryDays: 4 },
+  'ing-garlic-sauce': { id: 'ing-garlic-sauce', name: '단짠 갈릭 간장 소스', category: '소스', unit: 'g', costPerUnit: 6.2, currentStock: 1100, safetyStock: 1500, expiryDays: 60 },
+  'ing-cheese-ball': { id: 'ing-cheese-ball', name: '모짜렐라 치즈볼 완제(5개입)', category: '사이드', unit: '세트', costPerUnit: 1800, currentStock: 14, safetyStock: 20, expiryDays: 90 },
+  'ing-wing-stick': { id: 'ing-wing-stick', name: '바베큐 윙봉(6조각)', category: '원육', unit: '세트', costPerUnit: 4200, currentStock: 9, safetyStock: 15, expiryDays: 2 },
   'ing-coke': { id: 'ing-coke', name: '코카콜라 1.25L', category: '음료', unit: '병', costPerUnit: 1400, currentStock: 50, safetyStock: 20, expiryDays: 180 },
-  'ing-beer': { id: 'ing-beer', name: '생맥주 케그 1000cc', category: '주류', unit: '병', costPerUnit: 2500, currentStock: 30, safetyStock: 10, expiryDays: 30 }
+  'ing-beer': { id: 'ing-beer', name: '생맥주 케그 1000cc', category: '주류', unit: '병', costPerUnit: 2500, currentStock: 8, safetyStock: 10, expiryDays: 4 }
 }
 
-// 🌐 글로벌 통합 정규 레시피 사전
+// 🌐 메뉴 레시피(BOM) 사전
 export const ALL_MASTER_RECIPES: MenuProfitItem[] = [
   { id: 'master-cafe-1', name: '아메리카노 (ICED)', category: '커피및음료', price: 4500, packageCost: 280, recipe: [{ ingredientId: 'ing-coffee-bean', amount: 20 }] },
   { id: 'master-cafe-2', name: '카페라떼 (ICED)', category: '커피및음료', price: 5200, packageCost: 280, recipe: [{ ingredientId: 'ing-coffee-bean', amount: 20 }, { ingredientId: 'ing-fresh-milk', amount: 200 }] },
@@ -86,7 +95,6 @@ export const ALL_MASTER_RECIPES: MenuProfitItem[] = [
   { id: 'master-chk-7', name: '생맥주 1000cc', category: '음료및주류', price: 7000, packageCost: 200, recipe: [{ ingredientId: 'ing-beer', amount: 1 }] }
 ]
 
-// 🤖 표준 원가율 추정기
 export function estimateCostByCategory(category: string, price: number): { ingredientCost: number; packageCost: number } {
   const cat = category.toLowerCase()
   if (cat.includes('커피') || cat.includes('음료') || cat.includes('라떼') || cat.includes('티')) {
@@ -99,6 +107,134 @@ export function estimateCostByCategory(category: string, price: number): { ingre
     return { ingredientCost: Math.round(price * 0.28), packageCost: 300 }
   }
   return { ingredientCost: Math.round(price * 0.30), packageCost: 350 }
+}
+
+// 📦 [FR-M03] 식자재 목록 로드
+export function getStoreIngredients(storeKey: string): IngredientAnalysisItem[] {
+  const isChicken = storeKey.includes('chicken') || storeKey.includes('치킨')
+  const key = isChicken ? 'chicken' : 'cafe'
+  const storageKey = `localmate_ingredients_v2_${key}`
+
+  let currentMap: Record<string, IngredientItem> = {}
+
+  const defaultKeys = isChicken
+    ? ['ing-raw-chicken', 'ing-fry-powder', 'ing-fry-oil', 'ing-sweet-sauce', 'ing-garlic-sauce', 'ing-cheese-ball', 'ing-wing-stick', 'ing-coke', 'ing-beer']
+    : ['ing-coffee-bean', 'ing-fresh-milk', 'ing-vanilla-syrup', 'ing-matcha-powder', 'ing-earlgrey-tea', 'ing-croffle-dough', 'ing-strawberry-cake', 'ing-egg-tart']
+
+  defaultKeys.forEach(k => {
+    if (ALL_MASTER_INGREDIENTS[k]) {
+      currentMap[k] = { ...ALL_MASTER_INGREDIENTS[k] }
+    }
+  })
+
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem(storageKey)
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        if (typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+          currentMap = { ...currentMap, ...parsed }
+        }
+      } catch (e) {}
+    } else {
+      localStorage.setItem(storageKey, JSON.stringify(currentMap))
+    }
+  }
+
+  return Object.values(currentMap).map(ing => {
+    const totalValue = Math.round(ing.currentStock * ing.costPerUnit)
+    const isLowStock = ing.currentStock < ing.safetyStock
+    const recommendedOrder = isLowStock ? Math.round((ing.safetyStock * 1.5) - ing.currentStock) : 0
+
+    let expiryStatus: 'danger' | 'warning' | 'safe' = 'safe'
+    if (ing.expiryDays <= 2) {
+      expiryStatus = 'danger'
+    } else if (ing.expiryDays <= 4) {
+      expiryStatus = 'warning'
+    }
+
+    const expectedLoss = (expiryStatus === 'danger' || expiryStatus === 'warning') ? totalValue : 0
+
+    return {
+      ...ing,
+      totalValue,
+      isLowStock,
+      recommendedOrder,
+      expiryStatus,
+      expectedLoss
+    }
+  })
+}
+
+// 📦 식자재 수량 입고
+export function updateIngredientStock(storeKey: string, ingredientId: string, addedStock: number) {
+  if (typeof window === 'undefined') return
+  const isChicken = storeKey.includes('chicken') || storeKey.includes('치킨')
+  const key = isChicken ? 'chicken' : 'cafe'
+  const storageKey = `localmate_ingredients_v2_${key}`
+
+  const currentList = getStoreIngredients(key)
+  const map: Record<string, IngredientItem> = {}
+
+  currentList.forEach(item => {
+    if (item.id === ingredientId) {
+      map[item.id] = { ...item, currentStock: Math.max(0, item.currentStock + addedStock) }
+    } else {
+      map[item.id] = { ...item }
+    }
+  })
+
+  localStorage.setItem(storageKey, JSON.stringify(map))
+  window.dispatchEvent(new CustomEvent('ingredientUpdated', { detail: { storeId: key } }))
+  window.dispatchEvent(new Event('storage'))
+}
+
+// 🔄 식자재 구매단가 수정 (FR-M02 순이익 자동 갱신)
+export function updateIngredientCost(storeKey: string, ingredientId: string, newCost: number) {
+  if (typeof window === 'undefined') return
+  const isChicken = storeKey.includes('chicken') || storeKey.includes('치킨')
+  const key = isChicken ? 'chicken' : 'cafe'
+  const storageKey = `localmate_ingredients_v2_${key}`
+
+  const currentList = getStoreIngredients(key)
+  const map: Record<string, IngredientItem> = {}
+
+  currentList.forEach(item => {
+    if (item.id === ingredientId) {
+      map[item.id] = { ...item, costPerUnit: Math.max(0.1, newCost) }
+    } else {
+      map[item.id] = { ...item }
+    }
+  })
+
+  localStorage.setItem(storageKey, JSON.stringify(map))
+  window.dispatchEvent(new CustomEvent('ingredientUpdated', { detail: { storeId: key } }))
+  window.dispatchEvent(new CustomEvent('menuUpdated', { detail: { storeId: key } }))
+  window.dispatchEvent(new Event('storage'))
+}
+
+// 🔄 [핵심] 식자재 수량 및 구매단가를 모두 최초 표준 기본값으로 완벽 초기화하는 함수
+export function resetIngredientsToDefault(storeKey: string) {
+  if (typeof window === 'undefined') return
+  const isChicken = storeKey.includes('chicken') || storeKey.includes('치킨')
+  const key = isChicken ? 'chicken' : 'cafe'
+  const storageKey = `localmate_ingredients_v2_${key}`
+
+  let defaultMap: Record<string, IngredientItem> = {}
+  const defaultKeys = isChicken
+    ? ['ing-raw-chicken', 'ing-fry-powder', 'ing-fry-oil', 'ing-sweet-sauce', 'ing-garlic-sauce', 'ing-cheese-ball', 'ing-wing-stick', 'ing-coke', 'ing-beer']
+    : ['ing-coffee-bean', 'ing-fresh-milk', 'ing-vanilla-syrup', 'ing-matcha-powder', 'ing-earlgrey-tea', 'ing-croffle-dough', 'ing-strawberry-cake', 'ing-egg-tart']
+
+  defaultKeys.forEach(k => {
+    if (ALL_MASTER_INGREDIENTS[k]) {
+      defaultMap[k] = { ...ALL_MASTER_INGREDIENTS[k] }
+    }
+  })
+
+  localStorage.setItem(storageKey, JSON.stringify(defaultMap))
+  window.dispatchEvent(new CustomEvent('ingredientUpdated', { detail: { storeId: key } }))
+  window.dispatchEvent(new CustomEvent('menuUpdated', { detail: { storeId: key } }))
+  window.dispatchEvent(new Event('storage'))
 }
 
 // 🧮 메뉴 1건의 순수익 계산기
@@ -159,10 +295,14 @@ export function calculateMenuProfit(
   }
 }
 
-// 📍 실제 저장된 재고 데이터와 통합 마스터 레시피를 결합하여 분석 데이터 반환
+// 📍 [FR-M02] 실제 식자재 단가를 조회하여 메뉴 수익성 목록 반환
 export function getStoreProfitAnalysis(storeKey: string): CalculatedMenuProfit[] {
   const isChicken = storeKey.includes('chicken') || storeKey.includes('치킨')
   const key = isChicken ? 'chicken' : 'cafe'
+
+  const liveIngredients = getStoreIngredients(key)
+  const ingMap: Record<string, IngredientItem> = {}
+  liveIngredients.forEach(i => { ingMap[i.id] = i })
 
   let liveStockItems: any[] = []
   if (typeof window !== 'undefined') {
@@ -183,7 +323,7 @@ export function getStoreProfitAnalysis(storeKey: string): CalculatedMenuProfit[]
       : ALL_MASTER_RECIPES.filter(m => m.id.includes('cafe'))
 
     return fallbackList.map((m) =>
-      calculateMenuProfit(m.name, m.category, m.price, m, ALL_MASTER_INGREDIENTS, 0)
+      calculateMenuProfit(m.name, m.category, m.price, m, ingMap, 0)
     )
   }
 
@@ -205,13 +345,13 @@ export function getStoreProfitAnalysis(storeKey: string): CalculatedMenuProfit[]
       item.category || matchedKnown?.category || '메뉴',
       price,
       matchedKnown,
-      ALL_MASTER_INGREDIENTS,
+      ingMap,
       soldCount
     )
   })
 }
 
-// 🚀 [핵심] 단일 주문 파이프라인 함수: 재고 차감 + 매출 누적 + 이벤트 발행을 일원화 처리
+// 🚀 [단일 통합 주문 파이프라인] 주문 인입 시: 완제품 재고 차감 + 매출 누적 + 식자재 BOM 원자재 차감
 export function processStoreOrder(targetStoreId: string, menuNameOrId?: string, orderQuantity: number = 1): boolean {
   if (typeof window === 'undefined') return false
 
@@ -225,7 +365,6 @@ export function processStoreOrder(targetStoreId: string, menuNameOrId?: string, 
     const stockList: any[] = JSON.parse(savedStock)
     if (!Array.isArray(stockList) || stockList.length === 0) return false
 
-    // 대상 메뉴 찾기 (지정 없으면 첫 번째 가용 메뉴)
     let targetIndex = -1
     if (menuNameOrId) {
       targetIndex = stockList.findIndex(item => item.id === menuNameOrId || item.name.includes(menuNameOrId))
@@ -238,7 +377,7 @@ export function processStoreOrder(targetStoreId: string, menuNameOrId?: string, 
     const item = stockList[targetIndex]
     if (item.current <= 0) return false
 
-    // 1. 재고 차감 (current - orderQuantity)
+    // 1. 완제품 수량 차감
     const nextCurrent = Math.max(0, item.current - orderQuantity)
     stockList[targetIndex].current = nextCurrent
     localStorage.setItem(storageKey, JSON.stringify(stockList))
@@ -259,7 +398,32 @@ export function processStoreOrder(targetStoreId: string, menuNameOrId?: string, 
     localStorage.setItem(`localmate_today_sales_${storeKey}`, nextToday.toString())
     localStorage.setItem(`localmate_month_sales_${storeKey}`, nextMonth.toString())
 
-    // 3. 전체 시스템 실시간 동기화 이벤트 브로드캐스팅
+    // 3. BOM 식자재 소모 차감
+    const cleanName = item.name.trim()
+    const matchedRecipe = ALL_MASTER_RECIPES.find(r => 
+      r.name.trim() === cleanName || 
+      r.name.includes(cleanName) || 
+      cleanName.includes(r.name)
+    )
+
+    if (matchedRecipe && matchedRecipe.recipe.length > 0) {
+      const ingStorageKey = `localmate_ingredients_v2_${storeKey}`
+      const ingredients = getStoreIngredients(storeKey)
+      const ingMap: Record<string, IngredientItem> = {}
+      ingredients.forEach(i => { ingMap[i.id] = { ...i } })
+
+      matchedRecipe.recipe.forEach(comp => {
+        if (ingMap[comp.ingredientId]) {
+          const deductAmount = comp.amount * orderQuantity
+          ingMap[comp.ingredientId].currentStock = Math.max(0, ingMap[comp.ingredientId].currentStock - deductAmount)
+        }
+      })
+
+      localStorage.setItem(ingStorageKey, JSON.stringify(ingMap))
+      window.dispatchEvent(new CustomEvent('ingredientUpdated', { detail: { storeId: storeKey } }))
+    }
+
+    // 4. 전역 이벤트 발행
     window.dispatchEvent(new CustomEvent('stockUpdated', { detail: { storeId: storeKey, stock: stockList } }))
     window.dispatchEvent(new CustomEvent('localmate_sales_updated', { detail: { storeId: storeKey, added: addedRevenue, todaySales: nextToday } }))
     window.dispatchEvent(new CustomEvent('menuUpdated', { detail: { storeId: storeKey } }))

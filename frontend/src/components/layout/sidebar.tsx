@@ -10,6 +10,7 @@ import {
   LayoutGrid,
   Sparkles,
   DollarSign,
+  PackageCheck,
   ChevronDown,
   ChevronUp,
   ChevronLeft,
@@ -23,7 +24,6 @@ const DEFAULT_STORES = [
   { id: 'chicken', name: '🍗 수성 치킨 (지점)', icon: '🍗' }
 ]
 
-// 🎯 초기 마운트 시 깜빡임 방지를 위한 헬퍼 함수들
 const getInitialStoreId = (): string => {
   if (typeof window !== 'undefined') {
     return localStorage.getItem('localmate_store_id') || 'cafe'
@@ -73,7 +73,6 @@ export function Sidebar({
   const pathname = usePathname()
   const [isBusinessDropdownOpen, setIsBusinessDropdownOpen] = useState(false)
 
-  // 🎯 첫 렌더링부터 localStorage 데이터를 즉시 주입하여 깜빡임 원천 차단
   const [selectedStoreId, setSelectedStoreId] = useState<string>(getInitialStoreId)
   const [stores, setStores] = useState(getInitialStores)
   const [pendingTasksCount, setPendingTasksCount] = useState<number>(() => getInitialPendingCount(getInitialStoreId()))
@@ -154,6 +153,7 @@ export function Sidebar({
     { id: 'marketing', label: 'AI SNS 마케팅', icon: Sparkles, href: '/marketing' },
     { id: 'operations', label: '매장 운영 분석', icon: TrendingUp, href: '/operations' },
     { id: 'menu-profit', label: '메뉴 수익성 분석', icon: DollarSign, href: '/menu-profit' },
+    { id: 'inventory', label: '식자재 및 발주 관리', icon: PackageCheck, href: '/inventory' },
     { id: 'tasks', label: 'AI 업무 및 승인', icon: ClipboardList, href: '/tasks', badge: pendingTasksCount },
     { id: 'settings', label: '매장 설정', icon: Settings, href: '/settings' },
   ]

@@ -9,7 +9,7 @@ import { OperationsView } from '@/components/operations/view'
 import { TasksView } from '@/components/tasks/view'
 import { SettingsView } from '@/components/settings/view'
 import { MenuProfitView } from '@/components/menu/menu-profit-view'
-
+import { InventoryIntelligenceView } from '@/components/inventory/inventory-intelligence-view'
 // 에러 경계 컴포넌트 추가
 function ErrorBoundary({ children }: { children: React.ReactNode }) {
   const [hasError, setHasError] = useState(false)
@@ -49,6 +49,7 @@ export default function App() {
             <Route path="/settings" element={<SettingsView />} />
             <Route path="*" element={<Navigate to="/" replace />} />
             <Route path="/menu-profit" element={<MenuProfitView />} />
+            <Route path="/inventory" element={<InventoryIntelligenceView />} />
           </Routes>
         </Layout>
       </BrowserRouter>
