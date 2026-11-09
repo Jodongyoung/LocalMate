@@ -21,7 +21,7 @@ import {
   Zap
 } from 'lucide-react'
 import { getCurrentWeatherScenario, sanitizeStoreKey } from '@/lib/weather-scenarios'
-import { processStoreOrder, resetIngredientsToDefault } from '@/lib/recipe-data'
+import { processStoreOrder } from '@/lib/recipe-data'
 
 export interface MenuItem {
   name: string
@@ -612,24 +612,20 @@ export function TasksView() {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  // 🎯 [연동 완료] 시뮬레이션 초기화 시 완제품 재고 + 식자재 원자재 재고를 동시에 기본값으로 꽉 채움
+  // 🎯 [수정 완료] 당일 메뉴 준비 수량과 운영 제안 카드만 깔끔하게 초기화 (식자재 원자재 및 구매단가는 보존)
   const handleResetSimulation = () => {
-    if (confirm('현재 매장의 메뉴 준비 수량, 식자재 재고 및 결재 제안 카드를 모두 기본값으로 초기화하시겠습니까?')) {
+    if (confirm('현재 매장의 메뉴 준비 수량과 결재 제안 카드만 기본값으로 초기화하시겠습니까?\n(식자재 재고 및 누적 매출 통계는 보존됩니다)')) {
       const isCafe = selectedStoreId === 'cafe'
       const defaultStock = isCafe ? STORE_DEFAULT_STOCKS.cafe : STORE_DEFAULT_STOCKS.chicken
       const defaultPool = isCafe ? STORE_MENU_POOLS.cafe : STORE_MENU_POOLS.chicken
       
-      // 1. FR-M03 식자재(원자재) 재고 및 단가 100% 롤백 함수 호출
-      resetIngredientsToDefault(selectedStoreId)
-
-      // 2. 기상 시나리오 및 기본 프로모션 태스크 재생성
       const weatherTask = getWeatherDynamicProposal(selectedStoreId)
       const promoTask = isCafe ? STORE_BASE_PROMOS.cafe : STORE_BASE_PROMOS.chicken
       const defaultProposals = [weatherTask, promoTask]
       
       setIsEditingStock(false)
       syncAndSave(defaultProposals, defaultStock, defaultPool)
-      alert('완제품 메뉴 재고와 식자재 원자재 재고가 모두 초기 기본값으로 완벽히 채워졌습니다!')
+      alert('당일 메뉴 준비 수량과 운영 제안 카드가 초기화되었습니다.')
     }
   }
 
