@@ -4,13 +4,14 @@ import { Layout } from '@/components/layout/layout'
 import { DashboardView } from '@/components/dashboard/view'
 import { ReservationsView } from '@/components/reservations/view'
 import { ReviewsView } from '@/components/reviews/view'
-import { MarketingView } from '@/components/marketing/marketing-view' // 🎯 1. 마케팅 뷰 임포트 추가
+import { MarketingView } from '@/components/marketing/marketing-view'
 import { OperationsView } from '@/components/operations/view'
 import { TasksView } from '@/components/tasks/view'
 import { SettingsView } from '@/components/settings/view'
 import { MenuProfitView } from '@/components/menu/menu-profit-view'
 import { InventoryIntelligenceView } from '@/components/inventory/inventory-intelligence-view'
-// 에러 경계 컴포넌트 추가
+import { CommercialAnalysisView } from '@/components/commercialAnalysisView/CommercialAnalysisView'
+
 function ErrorBoundary({ children }: { children: React.ReactNode }) {
   const [hasError, setHasError] = useState(false)
   
@@ -43,13 +44,14 @@ export default function App() {
             <Route path="/" element={<DashboardView onLogout={() => {}} />} />
             <Route path="/reservations" element={<ReservationsView />} />
             <Route path="/reviews" element={<ReviewsView />} />
-            <Route path="/marketing" element={<MarketingView />} /> {/* 🎯 2. AI 마케팅 라우트 추가 */}
+            <Route path="/marketing" element={<MarketingView />} />
+            <Route path="/commercial-analysis" element={<CommercialAnalysisView />} />
             <Route path="/operations" element={<OperationsView />} />
             <Route path="/tasks" element={<TasksView />} />
             <Route path="/settings" element={<SettingsView />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
             <Route path="/menu-profit" element={<MenuProfitView />} />
             <Route path="/inventory" element={<InventoryIntelligenceView />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Layout>
       </BrowserRouter>
