@@ -16,7 +16,7 @@ import {
   Bookmark
 } from 'lucide-react';
 
-type ChannelType = 'daangn' | 'instagram' | 'naver';
+type ChannelType = 'facebook' | 'instagram' | 'naver_cafe';
 
 interface StoreInfo {
   id: string;
@@ -93,7 +93,6 @@ const generateLocalHashtags = (region: string, storeName: string, category: stri
     ? ['#치킨맛집', '#겉바속촉', '#치즈볼맛집']
     : ['#크로플맛집', '#핸드드립', '#디저트카페'];
 
-  // 총 12~14개의 핵심 해시태그 조합
   const combined = [...baseStoreTags, ...weatherTags, ...menuTags];
   return combined.join(' ');
 };
@@ -134,7 +133,7 @@ const STORE_PRESETS = {
   }
 };
 
-// 본문 멘트 생성 함수
+// 본문 멘트 생성 함수 (페이스북 · 인스타그램 · 네이버 카페)
 const buildChannelPosts = (bodyKeyword: string, store: StoreInfo, weatherInfo: WeatherInfo) => {
   const isHeat = weatherInfo.type === 'heatwave';
   const cleanWord = bodyKeyword.trim() || '특가 할인 혜택';
@@ -142,10 +141,10 @@ const buildChannelPosts = (bodyKeyword: string, store: StoreInfo, weatherInfo: W
   const hashtags = generateLocalHashtags(weatherInfo.region, store.name, store.category, isHeat);
 
   if (isHeat) {
-    const daangnPool = [
-      `이웃님들 오늘 ${weatherInfo.region} 기온이 34도까지 치솟아 정말 푹푹 찌네요! 🥵\n\n지친 저녁 시원하게 힐링하시라고, 오늘 저희 ${cleanStoreName}에서 동네 이웃분들을 위해 [${cleanWord}]을 시원하게 준비했습니다! ❄️\n\n퇴근길에 들르시거나 배달 주문 주실 때 "당근 보고 왔어요" 남겨주시면 사장님이 정성껏 챙겨드릴게요 :) 시원한 저녁 보내세요! 🍺`,
-      `${weatherInfo.region} 이웃분들 오늘 날씨 실화인가요? ☀️ 34도 폭염에 숨이 턱턱 막히네요 💦\n\n오늘 저녁은 불 앞에서 요리하지 마시고 편하게 드시라고, 당근 이웃 전용으로 [${cleanWord}] 깜짝 혜택 팍팍 쏩니다!\n\n주문서 요청사항에 "당근 이웃" 적어주시면 서비스 든든하게 넣어드릴게요 🍗 시원하게 치맥 한잔하세요!`,
-      `폭염주의보 발령! ${weatherInfo.region} 주민분들 오늘처럼 무더운 날엔 시원한 야식이 최고죠 🔥\n\n지치신 동네 이웃분들의 활력을 위해 오늘 하루 [${cleanWord}] 이벤트를 전격 진행합니다!\n\n골목 이웃분들 모두 더위 조심하시고, 매장 오셔서 편하게 혜택 누려보세요 💛`
+    const facebookPool = [
+      `여러분 오늘 ${weatherInfo.region} 기온이 34도까지 치솟아 정말 푹푹 찌네요! 🥵\n\n지친 저녁 시원하게 힐링하시라고, 오늘 저희 ${cleanStoreName}에서 페이지 팔로워분들을 위해 [${cleanWord}]을 시원하게 준비했습니다! ❄️\n\n퇴근길에 들르시거나 배달 주문 주실 때 "페이스북 보고 왔어요" 남겨주시면 사장님이 정성껏 챙겨드릴게요 :) 시원한 저녁 보내세요! 🍺`,
+      `${weatherInfo.region} 분들 오늘 날씨 실화인가요? ☀️ 34도 폭염에 숨이 턱턱 막히네요 💦\n\n오늘 저녁은 불 앞에서 요리하지 마시고 편하게 드시라고, 페이스북 페이지 전용으로 [${cleanWord}] 깜짝 혜택 팍팍 쏩니다!\n\n주문서 요청사항에 "페이스북 보고 왔어요" 적어주시면 서비스 든든하게 넣어드릴게요 🍗 시원하게 치맥 한잔하세요!`,
+      `폭염주의보 발령! ${weatherInfo.region} 주민분들 오늘처럼 무더운 날엔 시원한 야식이 최고죠 🔥\n\n지치신 고객분들의 활력을 위해 오늘 하루 [${cleanWord}] 이벤트를 전격 진행합니다!\n\n모두 더위 조심하시고, 매장 오셔서 편하게 혜택 누려보세요 💙`
     ];
 
     const instaPool = [
@@ -153,21 +152,21 @@ const buildChannelPosts = (bodyKeyword: string, store: StoreInfo, weatherInfo: W
       `SUMMER SPECIAL 🌊 34도 열대야 완벽 타파!\n\n오늘 밤 야식은 무조건 이거다! 🍗🍺\n지금 주문/방문하시면 [${cleanWord}] 혜택이 쏟아집니다 ❄️\n\n친구, 가족과 함께 시원한 치맥 파티 즐기세요 💛\n.\n.\n${hashtags}`
     ];
 
-    const naverPool = [
-      `[매장 공지] ${cleanStoreName} 폭염 극복 고객 감사 깜짝 프로모션\n\n안녕하세요, ${cleanStoreName}입니다.\n${weatherInfo.region}에 연일 이어지는 34도 무더위에도 찾아주시는 소중한 고객님들께 보답하고자 금일 특별 행사를 진행합니다.\n\n■ 프로모션 내용: ${cleanWord}\n■ 적용 시간: 금일 영업 마감 시까지\n\n매장 내 에어컨을 쾌적하게 가동 중이오니 편안하게 방문해 주세요. 감사합니다.`,
-      `[안내] 34℃ 폭염 대비 고객 감사 특별 혜택 안내\n\n궂은 무더위 속에서도 저희 매장을 믿고 주문해 주시는 고객님들을 위해 금일 한정 [${cleanWord}] 프로모션을 진행합니다.\n\n항상 청결하고 신선한 재료로 정성을 다해 보답하겠습니다.`
+    const naverCafePool = [
+      `[이벤트 공지] ${cleanStoreName} 폭염 극복 카페 회원 감사 깜짝 프로모션\n\n안녕하세요, ${cleanStoreName}입니다.\n${weatherInfo.region}에 연일 이어지는 34도 무더위에도 찾아주시는 카페 회원님들께 보답하고자 금일 특별 행사를 진행합니다.\n\n■ 프로모션 내용: ${cleanWord}\n■ 적용 시간: 금일 영업 마감 시까지\n■ 참여 방법: 방문 및 주문 시 "네이버 카페 보고 왔어요" 말씀해 주세요!\n\n매장 내 에어컨을 쾌적하게 가동 중이오니 편안하게 방문해 주세요. 감사합니다.`,
+      `[회원 혜택] 34℃ 폭염 대비 카페 회원님들을 위한 특별 혜택 안내\n\n무더위 속에서도 저희 매장을 믿고 주문해 주시는 카페 회원분들을 위해 금일 한정 [${cleanWord}] 프로모션을 진행합니다.\n\n항상 청결하고 신선한 재료로 정성을 다해 보답하겠습니다.`
     ];
 
     return {
-      daangn: daangnPool[Math.floor(Math.random() * daangnPool.length)],
+      facebook: facebookPool[Math.floor(Math.random() * facebookPool.length)],
       instagram: instaPool[Math.floor(Math.random() * instaPool.length)],
-      naver: naverPool[Math.floor(Math.random() * naverPool.length)]
+      naver_cafe: naverCafePool[Math.floor(Math.random() * naverCafePool.length)]
     };
   } else {
-    const daangnPool = [
-      `이웃님들 오늘 ${weatherInfo.region}에 비가 꽤 많이 내리고 있네요 ☔\n\n쌀쌀하고 궂은 날씨에 찾아주시는 동네 이웃분들께 감사한 마음을 담아, 오늘 하루 [${cleanWord}]을 넉넉하게 챙겨드립니다! :)\n\n매장 오셔서 "당근 이웃이에요"라고 살짝 말씀해 주세요 🥕 빗길 조심하세요!`,
-      `비 오는 날 특유의 빗소리가 참 좋은 하루입니다 🌧️\n\n따뜻하고 달콤한 힐링이 필요하신 ${weatherInfo.region} 이웃님들을 위해 오늘 [${cleanWord}] 선물을 준비했습니다!\n\n방문이나 주문 주실 때 당근 이웃이라고 꼭 알려주세요 💛`,
-      `오늘처럼 비 오는 날엔 따뜻한 향기와 음악이 있는 매장으로 놀러오세요 ☕\n\n동네 이웃분들을 위해 준비한 당일 한정 [${cleanWord}] 혜택으로 소소한 행복을 선물합니다 ✨`
+    const facebookPool = [
+      `여러분 오늘 ${weatherInfo.region}에 비가 꽤 많이 내리고 있네요 ☔\n\n쌀쌀하고 궂은 날씨에 찾아주시는 고객분들께 감사한 마음을 담아, 오늘 하루 [${cleanWord}]을 넉넉하게 챙겨드립니다! :)\n\n매장 오셔서 "페이스북 보고 왔어요"라고 살짝 말씀해 주세요 💙 빗길 조심하세요!`,
+      `비 오는 날 특유의 빗소리가 참 좋은 하루입니다 🌧️\n\n따뜻하고 달콤한 힐링이 필요하신 ${weatherInfo.region} 분들을 위해 오늘 [${cleanWord}] 선물을 준비했습니다!\n\n방문이나 주문 주실 때 페이스북 보고 왔다고 꼭 알려주세요 💛`,
+      `오늘처럼 비 오는 날엔 따뜻한 향기와 음악이 있는 매장으로 놀러오세요 ☕\n\n페이지 팔로워분들을 위해 준비한 당일 한정 [${cleanWord}] 혜택으로 소소한 행복을 선물합니다 ✨`
     ];
 
     const instaPool = [
@@ -175,15 +174,15 @@ const buildChannelPosts = (bodyKeyword: string, store: StoreInfo, weatherInfo: W
       `빗소리 가득한 날, 기분 좋은 힐링 타임 ☔\n\n비 오는 날 방문 고객님들을 위한 깜짝 이벤트!\n달콤한 디저트와 함께 [${cleanWord}] 혜택 챙겨가세요 ☕🍰\n.\n.\n${hashtags}`
     ];
 
-    const naverPool = [
-      `[매장 공지] 우천 고객 감사 프로모션 안내\n\n안녕하세요, ${cleanStoreName}입니다.\n비 오는 날에도 저희 매장을 찾아주시는 ${weatherInfo.region} 고객 여러분을 위해 당일 한정 프로모션을 진행합니다.\n\n■ 특별 혜택: ${cleanWord}\n■ 적용 기간: 금일 영업 종료 시까지\n\n항상 정성을 다해 준비하겠습니다. 감사합니다.`,
-      `[공지] 비 오는 날 매장 방문 고객 특별 이벤트 안내\n\n궂은 날씨에 발걸음해 주시는 고객님들께 감사한 마음을 담아 [${cleanWord}] 증정 혜택을 진행합니다. 아늑한 매장에서 편안한 시간 보내세요.`
+    const naverCafePool = [
+      `[이벤트 공지] 우천 기념 카페 회원 감사 프로모션 안내\n\n안녕하세요, ${cleanStoreName}입니다.\n비 오는 날에도 저희 매장을 찾아주시는 ${weatherInfo.region} 카페 회원 여러분을 위해 당일 한정 프로모션을 진행합니다.\n\n■ 특별 혜택: ${cleanWord}\n■ 적용 기간: 금일 영업 종료 시까지\n■ 참여 방법: 주문 시 "네이버 카페 보고 왔어요"라고 알려주세요!\n\n항상 정성을 다해 준비하겠습니다. 감사합니다.`,
+      `[회원 혜택] 비 오는 날 매장 방문 카페 회원 특별 이벤트 안내\n\n궂은 날씨에 발걸음해 주시는 카페 회원님들께 감사한 마음을 담아 [${cleanWord}] 증정 혜택을 진행합니다. 아늑한 매장에서 편안한 시간 보내세요.`
     ];
 
     return {
-      daangn: daangnPool[Math.floor(Math.random() * daangnPool.length)],
+      facebook: facebookPool[Math.floor(Math.random() * facebookPool.length)],
       instagram: instaPool[Math.floor(Math.random() * instaPool.length)],
-      naver: naverPool[Math.floor(Math.random() * naverPool.length)]
+      naver_cafe: naverCafePool[Math.floor(Math.random() * naverCafePool.length)]
     };
   }
 };
@@ -217,7 +216,7 @@ const buildRefinedTitle = (rawTitle: string, weatherInfo: WeatherInfo) => {
 };
 
 export function MarketingView() {
-  const [selectedChannel, setSelectedChannel] = useState<ChannelType>('daangn');
+  const [selectedChannel, setSelectedChannel] = useState<ChannelType>('facebook');
 
   // 활성 매장 및 주소 로드
   const getInitialStore = (): StoreInfo => {
@@ -345,7 +344,7 @@ export function MarketingView() {
     setBannerTitle(defaultData.defaultTitle);
     setSelectedImage(defaultData.image);
     setUploadStatus({});
-    setSelectedChannel('daangn');
+    setSelectedChannel('facebook');
     setGeneratedPosts(buildChannelPosts(defaultData.defaultKeyword, currentStore, weather));
 
     if (fileInputRef.current) {
@@ -452,7 +451,6 @@ export function MarketingView() {
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     } catch {
-      // Fallback
       const textArea = document.createElement('textarea');
       textArea.value = bodyText;
       document.body.appendChild(textArea);
@@ -475,12 +473,12 @@ export function MarketingView() {
   const getDisplayContent = () => {
     const bodyText = generatedPosts[selectedChannel] || '';
     switch (selectedChannel) {
-      case 'daangn':
-        return { tag: '당근 동네생활 소식', body: bodyText };
+      case 'facebook':
+        return { tag: '페이스북 페이지 소식', body: bodyText };
       case 'instagram':
         return { tag: '인스타그램 피드', body: bodyText };
-      case 'naver':
-        return { tag: '스마트플레이스 소식', body: bodyText };
+      case 'naver_cafe':
+        return { tag: '네이버 카페 게시글', body: bodyText };
     }
   };
 
@@ -666,14 +664,14 @@ export function MarketingView() {
         <div className="lg:col-span-7 flex flex-col items-center">
           <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-4 w-full max-w-md">
             <button
-              onClick={() => setSelectedChannel('daangn')}
+              onClick={() => setSelectedChannel('facebook')}
               className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
-                selectedChannel === 'daangn'
-                  ? 'bg-orange-500 text-white shadow-sm'
+                selectedChannel === 'facebook'
+                  ? 'bg-[#1877F2] text-white shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              🥕 당근마켓
+              📘 페이스북
             </button>
             <button
               onClick={() => setSelectedChannel('instagram')}
@@ -686,14 +684,14 @@ export function MarketingView() {
               📸 인스타그램
             </button>
             <button
-              onClick={() => setSelectedChannel('naver')}
+              onClick={() => setSelectedChannel('naver_cafe')}
               className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
-                selectedChannel === 'naver'
+                selectedChannel === 'naver_cafe'
                   ? 'bg-green-600 text-white shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              🟢 네이버 소식
+              ☕ 네이버 카페
             </button>
           </div>
 
@@ -794,8 +792,8 @@ export function MarketingView() {
                 className={`flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${
                   uploadStatus[selectedChannel]
                     ? 'bg-emerald-500 text-white cursor-default'
-                    : selectedChannel === 'daangn'
-                    ? 'bg-orange-500 hover:bg-orange-600 text-white'
+                    : selectedChannel === 'facebook'
+                    ? 'bg-[#1877F2] hover:bg-blue-700 text-white'
                     : selectedChannel === 'instagram'
                     ? 'bg-gradient-to-r from-purple-600 to-pink-500 text-white'
                     : 'bg-green-600 hover:bg-green-700 text-white'
@@ -809,7 +807,7 @@ export function MarketingView() {
                 ) : uploadStatus[selectedChannel] ? (
                   <>
                     <CheckCircle2 className="w-4 h-4" />
-                    업로드 완료! (반경 3km 노출 중)
+                    업로드 완료! (실시간 게시됨)
                   </>
                 ) : (
                   <>
